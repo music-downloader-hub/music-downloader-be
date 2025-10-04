@@ -1,0 +1,51 @@
+{
+    "job_id": "ID",
+    "status": "Status",
+    "return_code": "Return code",
+    "debug": [
+        {
+            "name": "Name of the song 1",
+            "variants": [
+                {
+                    "codec": "Codec of the song",
+                    "audio_profile": "Audio profile of the song",
+                    "bandwidth": "Bandwidth of the song"
+                },
+                {
+                    "codec": "Codec of the song",
+                    "audio_profile": "Audio profile of the song",
+                    "bandwidth": "Bandwidth of the song"
+                }
+            ],
+            "available_formats": {
+                "aac": "AAC of the song",
+                "lossless": "Lossless of the song",
+                "hires_lossless": "Hires lossless of the song",
+                "dolby_atmos": "Dolby atmos of the song",
+                "dolby_audio": "Dolby audio of the song"
+            }
+        },
+        {
+            "name": "Name of the song 2",
+            "variants": [
+                {
+                    "codec": "Codec of the song",
+                    "audio_profile": "Audio profile of the song",
+                    "bandwidth": "Bandwidth of the song"
+                },
+                {
+                    "codec": "Codec of the song",
+                    "audio_profile": "Audio profile of the song",
+                    "bandwidth": "Bandwidth of the song"
+                }
+            ],
+            "available_formats": {
+                "aac": "AAC of the song",
+                "lossless": "Lossless of the song",
+                "hires_lossless": "Hires lossless of the song",
+                "dolby_atmos": "Dolby atmos of the song",
+                "dolby_audio": "Dolby audio of the song"
+            }
+        }
+    ]
+}
