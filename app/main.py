@@ -13,6 +13,7 @@ import tempfile
 import re
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
+import httpx
 
 from .jobs import JobManager
 from .models import (
@@ -23,6 +24,8 @@ from .models import (
     LogsResponse,
     RunRequest,
     DebugResponse,
+    BatchDownloadRequest,
+    BatchDownloadResponse,
 )
 from .debug_parser import parse_debug_tracks
 from .runner import find_repo_root, start_wrapper, stop_wrapper, is_wrapper_running
@@ -37,6 +40,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 jobs = JobManager()
+
+# In-memory cache for Spotify Client Credentials token
+_spotify_access_token: str | None = None
+_spotify_token_expires_at: float = 0.0
 
 
 @app.on_event("startup")
@@ -69,6 +76,41 @@ def on_startup() -> None:
 @app.on_event("shutdown")
 def on_shutdown() -> None:
     stop_wrapper()
+
+
+@app.get("/auth/spotify/token")
+def spotify_token() -> dict:
+    global _spotify_access_token, _spotify_token_expires_at
+    # Return cached token if valid for at least 30 seconds
+    now = time.time()
+    if _spotify_access_token and (_spotify_token_expires_at - now) > 30:
+        return {"access_token": _spotify_access_token}
+
+    client_id = os.environ.get("SPOTIFY_CLIENT_ID")
+    client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured on server")
+
+    try:
+        resp = httpx.post(
+            "https://accounts.spotify.com/api/token",
+            data={"grant_type": "client_credentials"},
+            auth=(client_id, client_secret),
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to obtain Spotify token: {e}")
+
+    data = resp.json()
+    token = data.get("access_token")
+    expires_in = int(data.get("expires_in") or 3600)
+    if not token:
+        raise HTTPException(status_code=502, detail="Spotify token missing in response")
+
+    _spotify_access_token = token
+    _spotify_token_expires_at = now + max(0, expires_in - 30)
+    return {"access_token": token}
 
 
 @app.get("/health")
@@ -112,6 +154,48 @@ def download(request: DownloadRequest):
 
     job = jobs.start(args)
     return {"job_id": job.job_id}
+
+
+@app.post("/downloads/batch", response_model=BatchDownloadResponse)
+def download_batch(request: BatchDownloadRequest) -> BatchDownloadResponse:
+    results: List[JobResponse] = []
+    for item in request.items:
+        try:
+            # Reuse the same logic as single download
+            args: List[str] = []
+            if item.search_type:
+                if not item.search_term:
+                    raise HTTPException(status_code=400, detail="search_term is required when search_type is provided")
+                args.extend(["--search", item.search_type, item.search_term])
+            else:
+                if not item.url:
+                    raise HTTPException(status_code=400, detail="url is required when not using search mode")
+                if item.song:
+                    args.append("--song")
+                if item.select:
+                    args.append("--select")
+                if item.atmos:
+                    args.append("--atmos")
+                if item.aac:
+                    args.append("--aac")
+                if item.all_album:
+                    args.append("--all-album")
+                if item.debug:
+                    args.append("--debug")
+                args.append(item.url)
+            if item.extra_args:
+                args.extend(item.extra_args)
+
+            job = jobs.start(args)
+            results.append(JobResponse(job_id=job.job_id))
+        except HTTPException:
+            # Bubble HTTP errors (malformed item)
+            raise
+        except Exception:
+            # Skip failed item creation but continue others
+            continue
+
+    return BatchDownloadResponse(jobs=results)
 
 
 @app.post("/downloads/debug", response_model=DebugResponse)

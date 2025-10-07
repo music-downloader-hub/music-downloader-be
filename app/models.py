@@ -88,3 +88,11 @@ class DownloadResponse(BaseModel):
     format: Optional[AvailableFormats] = None
 
 
+
+# Batch download
+class BatchDownloadRequest(BaseModel):
+    items: List[DownloadRequest] = Field(default_factory=list)
+
+
+class BatchDownloadResponse(BaseModel):
+    jobs: List[JobResponse]
