@@ -1,0 +1,30 @@
+*
+!.gitignore
+!agent.js
+!agent-arm64.js
+!go.mod
+!go.sum
+!main.go
+!README.md
+!utils/*
+!config.yaml
+!backend_python/
+!backend_python/**
+!backend_go/**
+!backend_go/
+!wrapper/
+!wrapper/**
+!frontend/
+!frontend/**
+node_modules/
+node_modules/**
+!apple-music-links/
+!apple-music-links/**
+
+# re-ignore common Python artifacts inside backend
+backend_python/**/__pycache__/
+backend_python/**/*.pyc
+backend_python/.venv/
+# backend_go/**/__pycache__/
+# backend_go/**/*.pyc
+# backend-go/.venv/

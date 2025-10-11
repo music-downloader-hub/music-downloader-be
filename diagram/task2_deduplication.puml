@@ -1,0 +1,138 @@
+@startuml Task2_Deduplication
+!theme plain
+title Task 2: Tránh tải trùng lặp (Deduplication)
+
+actor "Người dùng A" as UserA
+actor "Người dùng B" as UserB
+participant "Giao diện Web" as Frontend
+participant "Download Service" as DownloadService
+participant "Dedupe Service" as DedupeService
+participant "Job Service" as JobService
+participant "Redis Cache" as Redis
+
+== Tình huống: 2 người tải cùng 1 bài hát ==
+
+UserA -> Frontend: Nhập link Apple Music
+Frontend -> DownloadService: Yêu cầu tải nhạc
+activate DownloadService
+
+DownloadService -> DownloadService: Tạo mã định danh nội dung
+note right: Từ URL + options (song, atmos, etc.)
+
+DownloadService -> DedupeService: Kiểm tra job đã tồn tại
+activate DedupeService
+DedupeService -> Redis: GET job:{content_key}
+Redis --> DedupeService: null (chưa có job)
+DedupeService -> Redis: SETNX lock:{content_key} job_id
+Redis --> DedupeService: 1 (khóa thành công)
+DedupeService --> DownloadService: Có thể tạo job mới
+deactivate DedupeService
+
+DownloadService -> JobService: Tạo job mới
+activate JobService
+JobService -> JobService: Khởi động quá trình tải
+JobService --> DownloadService: Trả về job_id mới
+deactivate JobService
+
+DownloadService -> DedupeService: Lưu mapping job
+DedupeService -> Redis: SET job:{content_key} job_id
+Redis --> DedupeService: Xác nhận lưu
+DedupeService --> DownloadService: Mapping đã lưu
+DownloadService --> Frontend: Trả về job_id mới
+Frontend --> UserA: Hiển thị "Đang tải..."
+
+== Người dùng B yêu cầu cùng nội dung ==
+
+UserB -> Frontend: Nhập cùng link Apple Music
+Frontend -> DownloadService: Yêu cầu tải nhạc
+activate DownloadService
+
+DownloadService -> DownloadService: Tạo cùng mã định danh
+note right: Cùng URL + options = cùng content_key
+
+DownloadService -> DedupeService: Kiểm tra job đã tồn tại
+activate DedupeService
+DedupeService -> Redis: GET job:{content_key}
+Redis --> DedupeService: job_id hiện có
+DedupeService --> DownloadService: Trả về job_id hiện có
+deactivate DedupeService
+
+DownloadService --> Frontend: Trả về job_id hiện có
+Frontend --> UserB: Hiển thị "Đang tải..." (cùng job)
+
+== Cả 2 người dùng thấy cùng tiến trình ==
+
+loop Tiến trình tải
+    JobService -> Frontend: Cập nhật tiến trình (UserA)
+    Frontend -> UserA: Hiển thị tiến trình
+    
+    JobService -> Frontend: Cập nhật tiến trình (UserB)
+    Frontend -> UserB: Hiển thị cùng tiến trình
+    note right: Cả 2 người dùng thấy cùng thanh tiến trình
+end
+
+== Lợi ích cho người dùng ==
+
+note over UserA, UserB
+  **Trải nghiệm người dùng:**
+  - Không tải trùng lặp → Tiết kiệm băng thông
+  - Phản hồi nhanh → Không phải chờ tạo job mới
+  - Thấy tiến trình ngay lập tức → Trải nghiệm mượt mà
+  - Tiết kiệm tài nguyên server → Hệ thống ổn định hơn
+end note
+
+== Lợi ích cho hệ thống ==
+
+note over DownloadService, Redis
+  **Tối ưu hệ thống:**
+  - Giảm 50% tải CPU từ việc tạo job trùng lặp
+  - Tiết kiệm băng thông mạng (không tải 2 lần)
+  - Giảm I/O disk (không ghi file trùng lặp)
+  - Tăng khả năng chịu tải (nhiều user hơn)
+end note
+
+== Xử lý khóa hết hạn ==
+
+loop Mỗi 30 phút
+    DedupeService -> Redis: Tìm khóa hết hạn
+    Redis --> DedupeService: Danh sách khóa hết hạn
+    DedupeService -> Redis: DEL lock:{expired_key}
+    DedupeService -> Redis: DEL job:{expired_key}
+    note right: Dọn dẹp khóa cũ, tránh memory leak
+end
+
+== Xử lý lỗi ==
+
+alt Redis không khả dụng
+    DedupeService -> DedupeService: Chuyển sang in-memory mode
+    note right: Vẫn hoạt động nhưng mất deduplication
+    DedupeService --> DownloadService: Cảnh báo offline mode
+    DownloadService --> Frontend: Thông báo "Chế độ đơn giản"
+    Frontend --> UserA: Hiển thị cảnh báo nhẹ
+end
+
+== Hoàn tất job ==
+
+JobService -> DownloadService: Tải hoàn tất
+DownloadService -> DedupeService: Giải phóng khóa
+DedupeService -> Redis: DEL lock:{content_key}
+Redis --> DedupeService: Xác nhận xóa khóa
+note right: Khóa được giải phóng, job khác có thể tạo mới
+
+DownloadService --> Frontend: Thông báo hoàn tất (UserA)
+Frontend --> UserA: Hiển thị "Tải thành công!"
+
+DownloadService --> Frontend: Thông báo hoàn tất (UserB)
+Frontend --> UserB: Hiển thị "Tải thành công!"
+
+== TTL tự động ==
+
+note over Redis
+  **Tự động dọn dẹp:**
+  - Lock TTL: 1 giờ (3600 giây)
+  - Job mapping TTL: 1 giờ (3600 giây)
+  - Tự động xóa khi hết hạn
+  - Không cần can thiệp thủ công
+end note
+
+@enduml

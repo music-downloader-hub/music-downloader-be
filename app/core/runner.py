@@ -9,16 +9,27 @@ from typing import Callable, Iterable, List, Optional
 
 
 def find_repo_root(start: Optional[Path] = None) -> Path:
-    """Ascend directories until we find the project root containing main.go.
-
-    Falls back to two levels above this file if not found.
+    """Find the Go module root containing main.go in the new structure.
+    
+    Looks for backend/modules/downloaders/main.go first, then falls back to old logic.
     """
+    # Try the new structure first: backend/modules/downloaders/
     current = start or Path(__file__).resolve()
     if current.is_file():
         current = current.parent
+    
+    # Look for backend/modules/downloaders/main.go
+    for parent in [current, *current.parents]:
+        downloaders_path = parent / "modules" / "downloaders"
+        if (downloaders_path / "main.go").exists() and (downloaders_path / "go.mod").exists():
+            return downloaders_path
+    
+    # Fallback to old logic (ascend directories)
     for parent in [current, *current.parents]:
         if (parent / "main.go").exists() and (parent / "go.mod").exists():
             return parent
+    
+    # Final fallback
     return Path(__file__).resolve().parents[2]
 
 
@@ -44,7 +55,9 @@ def ensure_wrapper_built(repo_root: Path) -> bool:
         if existing.stdout.strip():
             return True
         print("[WRAPPER] Building Docker image 'wrapper'...", flush=True)
-        result = run(["docker", "build", "--tag", "wrapper", "."], cwd=str(repo_root / "wrapper"), capture_output=True, text=True)
+        # Wrapper is now in backend/modules/wrapper/
+        wrapper_path = repo_root.parent.parent / "modules" / "wrapper"
+        result = run(["docker", "build", "--tag", "wrapper", "."], cwd=str(wrapper_path), capture_output=True, text=True)
         if result.returncode != 0:
             print("[WRAPPER][ERROR] Docker build failed.", flush=True)
             if result.stderr:
@@ -65,7 +78,9 @@ _WRAPPER_STARTED_BY_APP: bool = False
 def start_wrapper(repo_root: Path, login_args: Optional[str] = None) -> Optional[Popen]:
     if not ensure_wrapper_built(repo_root):
         return None
-    data_dir = repo_root / "wrapper" / "rootfs" / "data"
+    # Wrapper is now in backend/modules/wrapper/
+    wrapper_path = repo_root.parent.parent / "modules" / "wrapper"
+    data_dir = wrapper_path / "rootfs" / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     args = login_args or "-H 0.0.0.0"
     volume_spec = f"{str(data_dir)}:/app/rootfs/data"

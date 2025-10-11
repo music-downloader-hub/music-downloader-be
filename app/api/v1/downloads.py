@@ -63,6 +63,16 @@ def get_progress(job_id: str) -> dict:
     progress = job_service.get_job_progress(job_id)
     if not progress:
         raise HTTPException(status_code=404, detail="job not found")
+    
+    # Check if job is completed and register in cache
+    job = job_service.get_job(job_id)
+    if job and job.status == "completed":
+        try:
+            download_service.register_completed_download(job_id)
+        except Exception as e:
+            # Log error but don't fail the request
+            print(f"[CACHE] Failed to register completed download {job_id}: {e}")
+    
     return progress
 
 
@@ -79,7 +89,18 @@ def sse(job_id: str):
         job.sse_subscribers.append(push)
         try:
             yield "event: init\n" + "data: {}\n\n"
-            while job.status == "running" or queue:
+            
+            # If job is already completed, emit final event immediately
+            if job.status in ["completed", "failed"]:
+                final_event = {
+                    "type": "end",
+                    "status": job.status,
+                    "return_code": job.return_code
+                }
+                yield "data: " + __import__("json").dumps(final_event) + "\n\n"
+                return
+            
+            while job.status in ["running", "completed", "failed"] or queue:
                 while queue:
                     evt = queue.pop(0)
                     yield "data: " + __import__("json").dumps(evt) + "\n\n"

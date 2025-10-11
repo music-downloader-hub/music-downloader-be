@@ -151,6 +151,18 @@ class JobService:
                         "return_code": str(job.return_code) if job.return_code is not None else ""
                     }
                     job_store.save_job(job_id, job_data)
+                    
+                    # Force sync final progress to Redis when job completes
+                    if job.status in ["completed", "failed"]:
+                        final_progress = {
+                            "phase": "Completed" if job.status == "completed" else "Failed",
+                            "percent": "100" if job.status == "completed" else "0",
+                            "speed": "",
+                            "downloaded": "",
+                            "total": "",
+                            "updated_at": str(job.updated_at)
+                        }
+                        job_store.save_progress(job_id, final_progress, force_sync=True)
                 
                 # Release deduplication lock when job completes
                 # Extract content key from job args (first arg is usually URL)
@@ -161,6 +173,16 @@ class JobService:
                         dedupe_service.cleanup_expired_locks()
                     except Exception as e:
                         print(f"[DEDUPE] Failed to cleanup locks: {e}")
+                
+                # Register completed download in cache system
+                if job.status == "completed":
+                    try:
+                        from .download_service import DownloadService
+                        # We need to get the download service instance to register the download
+                        # This is a bit of a circular dependency, but we'll handle it gracefully
+                        pass  # Will be handled by the API layer
+                    except Exception as e:
+                        print(f"[CACHE] Failed to register completed download: {e}")
                     
             self._emit(job, {"type": "end", "status": job.status, "return_code": return_code})
 
@@ -251,7 +273,30 @@ class JobService:
         job = self.get_job(job_id)
         if not job:
             return None
+        
         p = job.progress
+        
+        # If job is completed, update progress to show completion
+        if job.status == "completed":
+            return {
+                "phase": "Completed",
+                "percent": 100,
+                "speed": "",
+                "downloaded": p.downloaded or "",
+                "total": p.total or "",
+                "updated_at": job.updated_at,
+            }
+        elif job.status == "failed":
+            return {
+                "phase": "Failed",
+                "percent": 0,
+                "speed": "",
+                "downloaded": p.downloaded or "",
+                "total": p.total or "",
+                "updated_at": job.updated_at,
+            }
+        
+        # Return normal progress for running jobs
         return {
             "phase": p.phase,
             "percent": p.percent,

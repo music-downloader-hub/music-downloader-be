@@ -1,0 +1,112 @@
+{
+  "bugs": [
+    {
+      "id": "task3-cache-management",
+      "title": "Task 3: Disk Cache Management - Path Configuration Issue",
+      "status": "resolved",
+      "priority": "high",
+      "category": "cache",
+      "description": "All downloads after the first one were caching and archiving the same directory as the first download.",
+      "root_cause": "The issue was NOT with the cache logic, but with the project structure change. Go module moved to backend/modules/downloaders/ but still created AM-DL downloads inside module instead of project root.",
+      "solution": "Fixed Go module config to use relative paths ../../../AM-DL downloads to create folders at project root level.",
+      "files_affected": [
+        "backend/modules/downloaders/config.yaml",
+        "backend/app/services/download_service.py",
+        "backend/app/api/routes.py",
+        "backend/app/setting/setting.py",
+        "backend/app/services/__init__.py"
+      ],
+      "resolution_date": "2024-12-19",
+      "impact": "Downloads and archives were pointing to wrong directories"
+    },
+    {
+      "id": "redis-cloud-progress-sync",
+      "title": "Redis Cloud Progress Sync Bug - Job Stuck at 100%",
+      "status": "resolved",
+      "priority": "high",
+      "category": "redis",
+      "description": "When using Redis Cloud, jobs get stuck at 100% progress and never transition to 'completed' status. UI shows continuous 'Decrypting' state with spinner.",
+      "root_cause": "Throttling logic bug in save_progress() - last_sync time was set before checking throttle condition, causing progress updates to never sync to Redis Cloud.",
+      "solution": "Fixed throttling logic to check last sync time before updating it. Added force_sync parameter for final progress updates when job completes. Fixed progress endpoint to show 'Completed' status and SSE to emit final events.",
+      "files_affected": [
+        "backend/app/core/redis.py",
+        "backend/app/services/job_service.py",
+        "backend/app/api/v1/downloads.py"
+      ],
+      "resolution_date": "2024-12-19",
+      "impact": "Jobs appeared to hang at 100% progress, UI became unresponsive",
+      "affected_environments": ["Redis Cloud only - localhost and in-memory worked fine"]
+    },
+    {
+      "id": "archive-naming-logic",
+      "title": "Archive Naming Logic - Potential Issues",
+      "status": "identified",
+      "priority": "medium",
+      "category": "archive",
+      "description": "Current archive naming logic has several potential issues that could cause problems in production.",
+      "issues": [
+        {
+          "type": "duplicate_names",
+          "description": "Multiple songs with same name from same artist/album will create duplicate filenames",
+          "example": "Artist - Album - Song.zip (multiple times)",
+          "impact": "Files overwrite each other"
+        },
+        {
+          "type": "long_filenames",
+          "description": "Very long artist/album/song names create extremely long filenames",
+          "example": "Very Long Artist Name With Special Characters - Very Long Album Name - Very Long Song Name.zip",
+          "impact": "Filesystem limits, download issues"
+        },
+        {
+          "type": "special_characters",
+          "description": "Unicode characters, symbols may cause issues",
+          "example": "Artist*Name - Album/Name - Song?Name.zip",
+          "impact": "File system compatibility, browser download issues"
+        },
+        {
+          "type": "song_name_detection",
+          "description": "Only takes first .m4a file found, may not get correct song name",
+          "code_location": "archive_service.py:_zip_filename_for_target()",
+          "impact": "May not get correct song name for albums with multiple tracks"
+        },
+        {
+          "type": "track_number_handling",
+          "description": "May remove valid parts of song names that start with numbers",
+          "example": "\"2 Fast 2 Furious\" becomes \"Fast 2 Furious\"",
+          "impact": "Incorrect song names"
+        },
+        {
+          "type": "sanitization_issues",
+          "description": "May create confusing names when replacing special characters",
+          "example": "Artist/Name becomes Artist_Name",
+          "impact": "Reduced readability"
+        }
+      ],
+      "suggested_improvements": [
+        "Add timestamp/ID for uniqueness",
+        "Limit filename length",
+        "Better song name detection for albums vs singles",
+        "Improved sanitization",
+        "Configurable naming pattern"
+      ],
+      "files_affected": [
+        "backend/app/services/archive_service.py"
+      ],
+      "complexity": "low_to_medium",
+      "dependencies": "none"
+    }
+  ],
+  "summary": {
+    "total_bugs": 3,
+    "resolved": 2,
+    "identified": 1,
+    "high_priority": 2,
+    "medium_priority": 1,
+    "categories": {
+      "cache": 1,
+      "redis": 1,
+      "archive": 1
+    }
+  },
+  "last_updated": "2024-12-19"
+}

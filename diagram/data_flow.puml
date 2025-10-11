@@ -1,0 +1,156 @@
+@startuml Data_Flow
+!theme plain
+title Luồng dữ liệu Apple Music Downloader
+
+actor "Người dùng" as User
+participant "Giao diện Web" as Frontend
+participant "Backend API" as Backend
+participant "Redis Cache" as Redis
+participant "Go Module" as GoModule
+participant "Hệ thống File" as FileSystem
+
+== Luồng yêu cầu tải nhạc ==
+
+User -> Frontend: Nhập link Apple Music
+Frontend -> Backend: POST /downloads
+activate Backend
+
+Backend -> Backend: Tạo mã định danh nội dung
+Backend -> Redis: Kiểm tra job đã tồn tại
+Redis --> Backend: Job tồn tại hoặc null
+
+alt Job đã tồn tại
+    Backend --> Frontend: Trả về job_id hiện có
+    note right: Người dùng sẽ thấy tiến trình của job đang chạy
+else Cần tạo job mới
+    Backend -> Redis: Khóa nội dung (SETNX)
+    Redis --> Backend: Khóa thành công
+    Backend -> Backend: Khởi động Go process
+    Backend -> Redis: Lưu dữ liệu job
+    Backend --> Frontend: Trả về job_id mới
+end
+
+== Luồng theo dõi tiến trình ==
+
+Frontend -> Backend: GET /downloads/{job_id}/progress
+Backend -> Redis: Lấy dữ liệu tiến trình
+Redis --> Backend: Thông tin tiến trình
+Backend --> Frontend: Phản hồi tiến trình
+
+loop Cập nhật real-time
+    GoModule -> Backend: Gửi dòng tiến trình
+    Backend -> Backend: Phân tích tiến trình
+    Backend -> Redis: Cập nhật tiến trình (throttled)
+    Backend -> Frontend: Sự kiện SSE
+    Frontend -> User: Cập nhật thanh tiến trình
+end
+
+== Luồng lưu trữ log ==
+
+GoModule -> Backend: Gửi dòng log
+Backend -> Backend: Đệm dòng log
+alt Đủ 10 dòng
+    Backend -> Redis: RPUSH logs (batch)
+    Redis -> Redis: LTRIM giữ lại 5000 dòng cuối
+end
+
+Frontend -> Backend: GET /downloads/{job_id}/logs
+Backend -> Redis: LRANGE logs
+Redis --> Backend: Dòng log
+Backend --> Frontend: Phản hồi log
+
+== Luồng quản lý cache ==
+
+GoModule -> FileSystem: Tải nhạc hoàn tất
+Backend -> Backend: Phát hiện hoàn tất
+Backend -> Backend: Tìm thư mục mới nhất
+Backend -> Redis: Đăng ký thư mục
+note right: Thiết lập TTL, cập nhật LRU, thêm vào bộ đếm bytes
+
+Backend -> Redis: Kiểm tra quota
+alt Vượt quota
+    Backend -> Redis: Lấy thư mục LRU
+    Backend -> FileSystem: Xóa thư mục cũ
+    Backend -> Redis: Cập nhật bộ đếm bytes
+end
+
+== Luồng tạo file nén ==
+
+Frontend -> Backend: GET /archive?path={path}
+Backend -> Backend: Xác thực đường dẫn
+Backend -> FileSystem: Đọc thư mục
+Backend -> Backend: Tạo ZIP trong temp
+Backend -> Backend: Lên lịch task dọn dẹp
+Backend --> Frontend: FileResponse (ZIP)
+Backend -> Backend: Dọn dẹp file tạm
+
+== Luồng dọn dẹp nền ==
+
+loop Mỗi 1 giờ
+    Backend -> Redis: Tìm thư mục hết hạn
+    Backend -> FileSystem: Xóa thư mục hết hạn
+    Backend -> Redis: Dọn dẹp khóa Redis
+    Backend -> Redis: Kiểm tra quota nếu cần
+end
+
+== Luồng xử lý lỗi ==
+
+alt Redis không khả dụng
+    Backend -> Backend: Chuyển sang in-memory
+    Backend -> Backend: Tiếp tục với tính năng hạn chế
+    note right: Hệ thống vẫn hoạt động nhưng mất tính năng cache
+end
+
+alt Go process lỗi
+    Backend -> Backend: Cập nhật trạng thái job
+    Backend -> Redis: Lưu trạng thái lỗi
+    Backend -> Frontend: Thông báo lỗi
+    Frontend --> User: Hiển thị thông báo lỗi
+end
+
+== Luồng tránh trùng lặp ==
+
+User -> Frontend: Yêu cầu tải cùng nội dung
+Frontend -> Backend: POST /downloads (trùng lặp)
+Backend -> Backend: Tạo cùng mã định danh
+Backend -> Redis: Kiểm tra job hiện có
+Redis --> Backend: Trả về job_id hiện có
+Backend --> Frontend: Trả về job_id hiện có
+note right: Không tạo tải trùng lặp, tiết kiệm tài nguyên
+
+== Luồng tối ưu hiệu suất ==
+
+note over Backend, Redis
+  **Tối ưu cho người dùng:**
+  - Phản hồi nhanh → Không phải chờ đợi
+  - Tiến trình mượt mà → Cập nhật real-time
+  - Không mất dữ liệu → Tất cả được lưu an toàn
+  - Giao diện ổn định → Không bị lag hoặc crash
+  
+  **Tối ưu cho hệ thống:**
+  - Batch operations → Giảm 90% Redis calls
+  - Local caching → Giảm latency
+  - Throttling → Tránh spam Redis
+  - Graceful fallback → Hoạt động ngay cả khi lỗi
+end note
+
+== Luồng monitoring ==
+
+loop Mỗi 5 phút
+    Backend -> Backend: Thu thập metrics
+    Backend -> Backend: Kiểm tra health check
+    Backend -> Redis: Ping test
+    Backend -> Backend: Log system status
+end
+
+== Luồng backup và recovery ==
+
+alt Hệ thống restart
+    Backend -> Redis: Khôi phục job đang chạy
+    Redis --> Backend: Danh sách job active
+    Backend -> Backend: Khôi phục trạng thái
+    Backend -> Frontend: Thông báo "Hệ thống đã khôi phục"
+    Frontend --> User: Hiển thị job đang chạy
+end
+
+@enduml

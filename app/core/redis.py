@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any, List
 from redis import Redis
 from redis.exceptions import ConnectionError, RedisError
 
-from ..setting.setting import REDIS_URL, ENABLE_REDIS, CACHE_TTL_SECONDS, MAX_LOG_LINES
+from ..setting.setting import REDIS_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_DB, ENABLE_REDIS, CACHE_TTL_SECONDS, MAX_LOG_LINES
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +21,14 @@ def get_redis() -> Optional[Redis]:
         logger.info("Redis disabled in settings. Using in-memory storage.")
         return None
         
-    if _redis_client is None and REDIS_URL:
+    if _redis_client is None and REDIS_HOST:
         try:
-            _redis_client = Redis.from_url(
-                REDIS_URL, 
+            # Use individual parameters for better control
+            _redis_client = Redis(
+                host=REDIS_HOST,
+                port=REDIS_PORT,
+                db=REDIS_DB,
+                password=REDIS_PASSWORD,
                 decode_responses=True,
                 max_connections=20,  # Connection pool
                 socket_keepalive=True,
@@ -33,7 +37,7 @@ def get_redis() -> Optional[Redis]:
             )
             # Test connection
             _redis_client.ping()
-            logger.info(f"Redis connected successfully to {REDIS_URL} with connection pooling")
+            logger.info(f"Redis connected successfully to {REDIS_HOST}:{REDIS_PORT} with connection pooling")
         except (ConnectionError, RedisError) as e:
             logger.warning(f"Redis connection failed: {e}. Falling back to in-memory storage.")
             _redis_client = None
@@ -109,17 +113,23 @@ class RedisJobStore:
             logger.error(f"Failed to get job {job_id}: {e}")
             return None
     
-    def save_progress(self, job_id: str, progress_data: Dict[str, Any], ttl: int = None) -> bool:
+    def save_progress(self, job_id: str, progress_data: Dict[str, Any], ttl: int = None, force_sync: bool = False) -> bool:
         """Save job progress to Redis with local caching for performance."""
         import time
         
         # Cache progress locally
         self._progress_cache[job_id] = progress_data.copy()
-        self._last_sync[job_id] = time.time()
         
-        # Only sync to Redis if enough time has passed (throttle updates)
-        if time.time() - self._last_sync.get(job_id, 0) < 0.5:  # 500ms throttle
-            return True
+        # Force sync for final progress updates (e.g., when job completes)
+        if not force_sync:
+            # Only sync to Redis if enough time has passed (throttle updates)
+            last_sync_time = self._last_sync.get(job_id, 0)
+            current_time = time.time()
+            if current_time - last_sync_time < 0.5:  # 500ms throttle
+                return True
+        
+        # Update last sync time only when we actually sync
+        self._last_sync[job_id] = time.time()
             
         key = self._get_key(job_id, ":progress")
         try:

@@ -1,0 +1,122 @@
+@startuml System_Architecture
+!theme plain
+title Kiến trúc hệ thống Apple Music Downloader
+
+actor "Người dùng" as User
+participant "Giao diện Web" as Frontend
+participant "API Backend" as Backend
+participant "Redis Cache" as Redis
+participant "Go Downloader" as GoModule
+participant "Docker Wrapper" as Wrapper
+participant "Hệ thống File" as FileSystem
+
+== Luồng tải nhạc cơ bản ==
+
+User -> Frontend: Nhập link Apple Music
+Frontend -> Backend: Gửi yêu cầu tải nhạc
+activate Backend
+
+Backend -> Backend: Tạo mã định danh nội dung
+Backend -> Redis: Kiểm tra job đã tồn tại chưa
+Redis --> Backend: Trả về job_id hoặc null
+
+alt Job đã tồn tại
+    Backend --> Frontend: Trả về job_id hiện có
+    note right: Người dùng sẽ thấy tiến trình của job đang chạy
+else Cần tạo job mới
+    Backend -> Redis: Khóa nội dung (tránh trùng lặp)
+    Redis --> Backend: Xác nhận khóa thành công
+    Backend -> Wrapper: Khởi động Docker container
+    Wrapper --> Backend: Container sẵn sàng
+    Backend -> GoModule: Bắt đầu tải nhạc
+    Backend -> Redis: Lưu thông tin job
+    Backend --> Frontend: Trả về job_id mới
+end
+
+== Theo dõi tiến trình tải ==
+
+loop Cập nhật real-time
+    GoModule -> Backend: Gửi thông tin tiến trình
+    Backend -> Backend: Phân tích dữ liệu tiến trình
+    Backend -> Redis: Cập nhật tiến trình (tối ưu)
+    Backend -> Frontend: Gửi sự kiện SSE
+    Frontend -> User: Hiển thị thanh tiến trình
+end
+
+== Lưu trữ log ==
+
+GoModule -> Backend: Gửi dòng log
+Backend -> Backend: Đệm log trong bộ nhớ
+alt Đủ 10 dòng log
+    Backend -> Redis: Lưu batch log
+    Redis -> Redis: Giữ lại 5000 dòng cuối
+end
+
+User -> Frontend: Xem log tải nhạc
+Frontend -> Backend: Yêu cầu log
+Backend -> Redis: Lấy log
+Redis --> Backend: Trả về log
+Backend --> Frontend: Gửi log
+Frontend --> User: Hiển thị log
+
+== Quản lý cache đĩa ==
+
+GoModule -> FileSystem: Tải nhạc hoàn tất
+Backend -> Backend: Phát hiện hoàn tất
+Backend -> Backend: Tìm thư mục mới nhất
+Backend -> Redis: Đăng ký thư mục
+note right: Thiết lập TTL, cập nhật LRU, đếm dung lượng
+
+Backend -> Redis: Kiểm tra quota
+alt Vượt quota
+    Backend -> Redis: Lấy thư mục LRU
+    Backend -> FileSystem: Xóa thư mục cũ
+    Backend -> Redis: Cập nhật bộ đếm dung lượng
+end
+
+== Tạo file nén ==
+
+User -> Frontend: Tải file nén
+Frontend -> Backend: Yêu cầu tạo ZIP
+Backend -> Backend: Xác thực đường dẫn
+Backend -> FileSystem: Đọc nội dung thư mục
+Backend -> Backend: Tạo ZIP tạm thời
+Backend -> Backend: Lên lịch dọn dẹp
+Backend --> Frontend: Trả về file ZIP
+Backend -> Backend: Dọn dẹp file tạm
+
+== Dọn dẹp tự động ==
+
+loop Mỗi 1 giờ
+    Backend -> Redis: Tìm thư mục hết hạn
+    Backend -> FileSystem: Xóa thư mục hết hạn
+    Backend -> Redis: Dọn dẹp khóa Redis
+    Backend -> Redis: Kiểm tra quota nếu cần
+end
+
+== Xử lý lỗi ==
+
+alt Redis không khả dụng
+    Backend -> Backend: Chuyển sang bộ nhớ tạm
+    Backend -> Backend: Tiếp tục với tính năng hạn chế
+    note right: Hệ thống vẫn hoạt động nhưng mất tính năng cache
+end
+
+alt Go process lỗi
+    Backend -> Backend: Cập nhật trạng thái job
+    Backend -> Redis: Lưu trạng thái lỗi
+    Backend -> Frontend: Thông báo lỗi
+    Frontend --> User: Hiển thị thông báo lỗi
+end
+
+== Tránh trùng lặp ==
+
+User -> Frontend: Yêu cầu tải cùng nội dung
+Frontend -> Backend: Gửi yêu cầu (trùng lặp)
+Backend -> Backend: Tạo cùng mã định danh
+Backend -> Redis: Kiểm tra job hiện có
+Redis --> Backend: Trả về job_id hiện có
+Backend --> Frontend: Trả về job_id hiện có
+note right: Không tạo tải trùng lặp, tiết kiệm tài nguyên
+
+@enduml

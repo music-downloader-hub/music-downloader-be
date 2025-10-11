@@ -3,12 +3,65 @@
 ## 1. Cài đặt Redis
 
 ### Windows (Docker - Khuyến nghị)
+
+#### Cài đặt Docker Desktop
+1. Tải Docker Desktop từ: https://www.docker.com/products/docker-desktop/
+2. Cài đặt và khởi động Docker Desktop
+3. Đảm bảo Docker Engine đang chạy (biểu tượng Docker màu xanh)
+
+#### Chạy Redis Container
 ```bash
-# Chạy Redis container
+# Chạy Redis container lần đầu
 docker run -d --name redis-server -p 6379:6379 redis:7-alpine
 
 # Kiểm tra Redis đang chạy
 docker ps
+
+# Nếu container đã tồn tại nhưng bị dừng
+docker start redis-server
+
+# Nếu muốn tạo container mới (xóa container cũ)
+docker rm redis-server
+docker run -d --name redis-server -p 6379:6379 redis:7-alpine
+```
+
+#### Quản lý Redis Container
+```bash
+# Xem tất cả container (bao gồm đã dừng)
+docker ps -a
+
+# Dừng Redis container
+docker stop redis-server
+
+# Khởi động lại Redis container
+docker start redis-server
+
+# Xóa Redis container
+docker rm redis-server
+
+# Xem logs Redis
+docker logs redis-server
+
+# Truy cập Redis CLI trong container
+docker exec -it redis-server redis-cli
+```
+
+#### Test kết nối Redis
+```bash
+# Test từ host machine
+redis-cli -h localhost -p 6379 ping
+# Kết quả: PONG
+
+# Test từ Python
+python -c "
+import redis
+try:
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    result = r.ping()
+    print(f'✅ Redis ping successful: {result}')
+except Exception as e:
+    print(f'❌ Redis connection failed: {e}')
+"
 ```
 
 ### Windows (Redis for Windows)
@@ -59,23 +112,48 @@ python run_server.py
 1. Mở Redis Insight
 2. Click "Add Redis Database"
 3. Điền thông tin:
-   - **Host**: `localhost`
+   - **Host**: `localhost` (hoặc `127.0.0.1`)
    - **Port**: `6379`
    - **Database Alias**: `Apple Music Downloader`
    - **Username**: (để trống nếu không có auth)
    - **Password**: (để trống nếu không có auth)
 4. Click "Add Redis Database"
 
+### Kết nối Redis Docker Container
+Nếu Redis chạy trong Docker container:
+1. Đảm bảo container đang chạy: `docker ps`
+2. Đảm bảo port mapping: `-p 6379:6379`
+3. Sử dụng `localhost:6379` trong Redis Insight
+4. Nếu không kết nối được, test: `docker exec -it redis-server redis-cli ping`
+
 ## 4. Kiểm tra Redis Integration
 
 ### Test kết nối
 ```bash
-# Test Redis CLI
+# Test Redis CLI (nếu cài đặt Redis CLI)
 redis-cli ping
 # Kết quả: PONG
 
+# Test Redis CLI trong Docker container
+docker exec -it redis-server redis-cli ping
+# Kết quả: PONG
+
 # Test từ Python
-python -c "from backend_python.app.core.redis import is_redis_available; print('Redis available:', is_redis_available())"
+python -c "
+from app.core.redis import is_redis_available
+print('Redis available:', is_redis_available())
+"
+
+# Test kết nối Redis trực tiếp
+python -c "
+import redis
+try:
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    result = r.ping()
+    print(f'✅ Redis ping successful: {result}')
+except Exception as e:
+    print(f'❌ Redis connection failed: {e}')
+"
 ```
 
 ### Tạo job test
@@ -155,7 +233,30 @@ DEL jobs:abc123def456 jobs:abc123def456:progress jobs:abc123def456:logs
 
 ## 7. Troubleshooting
 
-### Redis không kết nối được
+### Redis Docker không kết nối được
+```bash
+# Kiểm tra Docker Desktop có chạy không
+# Biểu tượng Docker trong system tray phải màu xanh
+
+# Kiểm tra Redis container có chạy không
+docker ps
+# Phải thấy container redis-server với STATUS "Up"
+
+# Nếu container không chạy
+docker ps -a
+# Xem container có tồn tại không, nếu có thì start lại
+docker start redis-server
+
+# Kiểm tra port 6379
+netstat -an | findstr :6379
+# Phải thấy :6379 LISTENING
+
+# Test Redis CLI
+docker exec -it redis-server redis-cli ping
+# Kết quả: PONG
+```
+
+### Redis không kết nối được (tổng quát)
 ```bash
 # Kiểm tra Redis đang chạy
 docker ps | grep redis
@@ -163,7 +264,22 @@ docker ps | grep redis
 redis-cli ping
 
 # Kiểm tra port
-netstat -an | grep 6379
+netstat -an | findstr :6379
+```
+
+### Docker Desktop Issues
+```bash
+# Nếu Docker Desktop không khởi động được
+# 1. Restart Docker Desktop
+# 2. Kiểm tra WSL2 (Windows Subsystem for Linux) có được cài đặt không
+# 3. Kiểm tra Hyper-V có được enable không
+
+# Kiểm tra Docker daemon
+docker version
+# Phải thấy cả Client và Server version
+
+# Reset Docker Desktop (nếu cần)
+# Settings > Reset to factory defaults
 ```
 
 ### Backend fallback to in-memory

@@ -17,7 +17,11 @@ class ArchiveService:
     """Service for creating and managing download archives."""
     
     def __init__(self):
-        self.downloads_root = find_repo_root() / "AM-DL downloads"
+        # AM-DL downloads is now at the project root level
+        # find_repo_root() returns backend/modules/downloaders/
+        # So we need to go up 3 levels: downloaders -> modules -> backend -> project_root
+        project_root = find_repo_root().parent.parent.parent
+        self.downloads_root = project_root / "AM-DL downloads"
 
     def _validate_subpath(self, path: str) -> Path:
         """Validate that path is under downloads root."""
@@ -66,9 +70,9 @@ class ArchiveService:
         if not root.exists():
             return None
         
+        # Find the most recently modified directory
         best_dir = None
         best_mtime = -1.0
-        threshold = job_created_at - 300.0  # 5 minutes buffer
         
         for current_root, dirs, files in os.walk(root):
             # Compute latest mtime within this directory
@@ -89,7 +93,8 @@ class ArchiveService:
             except Exception:
                 pass
             
-            if latest >= threshold and latest > best_mtime:
+            # Find the most recent directory (ignore job creation time)
+            if latest > best_mtime:
                 best_mtime = latest
                 best_dir = Path(current_root)
         

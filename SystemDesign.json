@@ -10,7 +10,9 @@
         "List/Stream jobs:{id}:logs với TTL"
       ],
       "techstack": ["Redis", "redis-py", "FastAPI"],
-      "ngu_canh_su_dung_thuc_te": "Triển khai nhiều instance API/worker; cần chia sẻ job và progress realtime"
+      "ngu_canh_su_dung_thuc_te": "Triển khai nhiều instance API/worker; cần chia sẻ job và progress realtime",
+      "status": "completed",
+      "implementation": "RedisJobStore với Hash jobs:{id}, Hash jobs:{id}:progress, List jobs:{id}:logs. Có local caching và batch operations để tối ưu performance."
     },
     {
       "id": 2,
@@ -22,7 +24,9 @@
         "Trả về job hiện có nếu nội dung trùng"
       ],
       "techstack": ["Redis"],
-      "ngu_canh_su_dung_thuc_te": "Nhiều người cùng yêu cầu 1 bài/biến thể; gom về 1 job, tránh tải trùng"
+      "ngu_canh_su_dung_thuc_te": "Nhiều người cùng yêu cầu 1 bài/biến thể; gom về 1 job, tránh tải trùng",
+      "status": "completed",
+      "implementation": "DedupeService với content key generation từ URL+options, Redis SETNX locks, và job mapping. Tự động cleanup expired locks."
     },
     {
       "id": 3,
@@ -35,7 +39,9 @@
         "Key cache:bytes và xóa LRU khi vượt quota"
       ],
       "techstack": ["Redis", "Python scheduler"],
-      "ngu_canh_su_dung_thuc_te": "Server công cộng dung lượng hữu hạn; tránh tràn đĩa nhưng vẫn giữ cache nóng"
+      "ngu_canh_su_dung_thuc_te": "Server công cộng dung lượng hữu hạn; tránh tràn đĩa nhưng vẫn giữ cache nóng",
+      "status": "completed",
+      "implementation": "CacheService với Redis keys: dir:{path} (TTL), cache:lru (ZSET), cache:bytes (counter). CacheScheduler cho background cleanup. API endpoints /cache/* để quản lý. Tự động register completed downloads. Đã fix path issue - Go module config sử dụng relative paths ../../../AM-DL downloads để tạo folder ở project root thay vì trong module."
     },
     {
       "id": 4,
@@ -47,7 +53,9 @@
         "Khóa lock:dir:{path} khi xóa"
       ],
       "techstack": ["FastAPI BackgroundTasks", "shutil"],
-      "ngu_canh_su_dung_thuc_te": "Tự dọn thư mục khi hết nhu cầu truy cập; giảm vận hành thủ công"
+      "ngu_canh_su_dung_thuc_te": "Tự dọn thư mục khi hết nhu cầu truy cập; giảm vận hành thủ công",
+      "status": "not_implemented",
+      "implementation": "Chưa triển khai. Cần implement background cleaner để tự động dọn thư mục hết hạn."
     },
     {
       "id": 5,
@@ -59,7 +67,9 @@
         "API SSE chuyển tiếp sự kiện"
       ],
       "techstack": ["Redis Pub/Sub", "Redis Streams", "FastAPI"],
-      "ngu_canh_su_dung_thuc_te": "Frontend theo dõi tiến độ từ nhiều instance; cần fan-out sự kiện ổn định"
+      "ngu_canh_su_dung_thuc_te": "Frontend theo dõi tiến độ từ nhiều instance; cần fan-out sự kiện ổn định",
+      "status": "basic_implementation",
+      "implementation": "Có SSE endpoint /downloads/{job_id}/events với in-memory event queue. Chưa có Redis Pub/Sub cho multi-instance distribution."
     },
     {
       "id": 6,
@@ -71,7 +81,9 @@
         "LTRIM giữ N dòng hoặc dùng Streams"
       ],
       "techstack": ["Redis"],
-      "ngu_canh_su_dung_thuc_te": "UI cần xem log tail; trả nhanh last_n, không giữ log khổng lồ trong RAM"
+      "ngu_canh_su_dung_thuc_te": "UI cần xem log tail; trả nhanh last_n, không giữ log khổng lồ trong RAM",
+      "status": "completed",
+      "implementation": "RedisJobStore có List jobs:{id}:logs với RPUSH, LTRIM giữ 5000 dòng, và batch buffering để tối ưu performance."
     },
     {
       "id": 7,
@@ -83,7 +95,9 @@
         "Worker Python chạy go run, giới hạn concurrency"
       ],
       "techstack": ["Redis", "Python worker", "(tùy chọn) RQ/Arq/Celery"],
-      "ngu_canh_su_dung_thuc_te": "Lượng yêu cầu cao; giới hạn số tiến trình go run đồng thời để ổn định I/O"
+      "ngu_canh_su_dung_thuc_te": "Lượng yêu cầu cao; giới hạn số tiến trình go run đồng thời để ổn định I/O",
+      "status": "not_implemented",
+      "implementation": "Chưa triển khai. Hiện tại mỗi request tạo job riêng biệt. Cần implement queue system với concurrency limits."
     },
     {
       "id": 8,
@@ -95,7 +109,9 @@
         "Xóa bằng BackgroundTasks sau khi gửi"
       ],
       "techstack": ["FastAPI", "shutil"],
-      "ngu_canh_su_dung_thuc_te": "Người dùng tải ZIP on-demand; xóa file tạm sau khi gửi để tiết kiệm đĩa"
+      "ngu_canh_su_dung_thuc_te": "Người dùng tải ZIP on-demand; xóa file tạm sau khi gửi để tiết kiệm đĩa",
+      "status": "completed",
+      "implementation": "ArchiveService với endpoints /archive/{path} và /{job_id}/archive. Sử dụng shutil.make_archive và BackgroundTasks cleanup."
     },
     {
       "id": 9,
@@ -107,7 +123,9 @@
         "CACHE_MAX_BYTES, CACHE_TTL_SECONDS"
       ],
       "techstack": ["dotenv", "env vars"],
-      "ngu_canh_su_dung_thuc_te": "Bật/tắt nhanh Spotify/Redis/cleaner theo môi trường; rollout an toàn"
+      "ngu_canh_su_dung_thuc_te": "Bật/tắt nhanh Spotify/Redis/cleaner theo môi trường; rollout an toàn",
+      "status": "completed",
+      "implementation": "setting.py với các flags: ENABLE_REDIS, ENABLE_REDIS_LOGS, ENABLE_REDIS_PROGRESS, ENABLE_DEDUPLICATION, ENABLE_SPOTIFY. Có thể override bằng environment variables."
     },
     {
       "id": 10,
@@ -119,7 +137,9 @@
         "Prometheus exporter, structured logging"
       ],
       "techstack": ["Prometheus", "Grafana", "logfmt/json"],
-      "ngu_canh_su_dung_thuc_te": "Theo dõi tỉ lệ lỗi, latency tải; điều chỉnh TTL/quota dựa trên metrics"
+      "ngu_canh_su_dung_thuc_te": "Theo dõi tỉ lệ lỗi, latency tải; điều chỉnh TTL/quota dựa trên metrics",
+      "status": "basic_implementation",
+      "implementation": "Có basic logging và ENABLE_PERFORMANCE_LOGGING flag. Chưa có Prometheus metrics, Grafana dashboards, hoặc structured logging."
     },
     {
       "id": 11,
@@ -131,7 +151,9 @@
         "Reverse proxy cân bằng tải"
       ],
       "techstack": ["Redis", "Nginx/Caddy", "Docker/systemd"],
-      "ngu_canh_su_dung_thuc_te": "Scale out theo tải; cân bằng giữa nhiều process/máy, chia sẻ trạng thái qua Redis"
+      "ngu_canh_su_dung_thuc_te": "Scale out theo tải; cân bằng giữa nhiều process/máy, chia sẻ trạng thái qua Redis",
+      "status": "ready_for_scaling",
+      "implementation": "API đã stateless với Redis job store. Có thể scale horizontal bằng cách chạy nhiều instance. Chưa có reverse proxy config."
     },
     {
       "id": 12,
@@ -143,7 +165,9 @@
         "Size/timeouts, sandbox tiến trình CLI"
       ],
       "techstack": ["Redis", "FastAPI middleware/deps"],
-      "ngu_canh_su_dung_thuc_te": "Chặn spam/tải ồ ạt; bảo vệ tài nguyên và chất lượng dịch vụ"
+      "ngu_canh_su_dung_thuc_te": "Chặn spam/tải ồ ạt; bảo vệ tài nguyên và chất lượng dịch vụ",
+      "status": "not_implemented",
+      "implementation": "Chưa triển khai rate limiting, API key authentication, hoặc sandboxing. Cần implement để bảo vệ khỏi abuse."
     },
     {
       "id": 13,
@@ -155,7 +179,9 @@
         "Phát hiện process zombie, resume từ Redis khi restart"
       ],
       "techstack": ["Redis", "psutil"],
-      "ngu_canh_su_dung_thuc_te": "Job/tiến trình có thể lỗi; tự phục hồi, resume trạng thái sau restart"
+      "ngu_canh_su_dung_thuc_te": "Job/tiến trình có thể lỗi; tự phục hồi, resume trạng thái sau restart",
+      "status": "basic_implementation",
+      "implementation": "Có fallback từ Redis sang in-memory storage. Chưa có retry logic, zombie process detection, hoặc automatic recovery sau restart."
     },
     {
       "id": 14,
@@ -167,7 +193,9 @@
         "Lifecycle 1–2 ngày"
       ],
       "techstack": ["S3/MinIO", "boto3/minio-py"],
-      "ngu_canh_su_dung_thuc_te": "Kho bài hát lớn; lưu ở object storage với lifecycle, local chỉ cache nóng"
+      "ngu_canh_su_dung_thuc_te": "Kho bài hát lớn; lưu ở object storage với lifecycle, local chỉ cache nóng",
+      "status": "not_implemented",
+      "implementation": "Chưa triển khai. Hiện tại chỉ lưu local. Cần implement S3/MinIO integration với lifecycle management."
     }
   ]
 }

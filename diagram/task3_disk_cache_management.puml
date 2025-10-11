@@ -1,0 +1,170 @@
+@startuml Task3_Disk_Cache_Management
+!theme plain
+title Task 3: Quản lý Cache đĩa với TTL và Quota
+
+actor "Người dùng" as User
+participant "Giao diện Web" as Frontend
+participant "Download Service" as DownloadService
+participant "Cache Service" as CacheService
+participant "Cache Scheduler" as Scheduler
+participant "Redis Cache" as Redis
+participant "Hệ thống File" as FileSystem
+
+== Đăng ký thư mục mới ==
+
+User -> Frontend: Tải nhạc thành công
+Frontend -> DownloadService: Thông báo hoàn tất
+activate DownloadService
+
+DownloadService -> DownloadService: Tìm thư mục mới nhất
+DownloadService -> CacheService: Đăng ký thư mục
+activate CacheService
+
+CacheService -> FileSystem: Tính dung lượng thư mục
+FileSystem --> CacheService: Trả về size (bytes)
+CacheService -> Redis: SETEX dir:{path} timestamp 86400
+note right: TTL 24 giờ (86400 giây)
+CacheService -> Redis: ZADD cache:lru timestamp path
+note right: Cập nhật LRU với timestamp hiện tại
+CacheService -> Redis: INCRBY cache:bytes size
+note right: Cộng dồn tổng dung lượng
+Redis --> CacheService: Xác nhận cập nhật
+CacheService --> DownloadService: Đăng ký thành công
+deactivate CacheService
+deactivate DownloadService
+
+== Kiểm tra quota tự động ==
+
+CacheService -> Redis: GET cache:bytes
+Redis --> CacheService: Tổng dung lượng hiện tại
+CacheService -> CacheService: So sánh với quota (90% max)
+alt Vượt quota
+    CacheService -> Redis: ZRANGE cache:lru 0 -1
+    Redis --> CacheService: Danh sách thư mục LRU
+    CacheService -> FileSystem: Xóa thư mục cũ nhất
+    FileSystem --> CacheService: Xác nhận xóa
+    CacheService -> Redis: DECRBY cache:bytes size
+    CacheService -> Redis: ZREM cache:lru path
+    CacheService -> Redis: DEL dir:{path}
+    note right: Dọn dẹp hoàn toàn khỏi cache
+end
+
+== Dọn dẹp tự động (Background) ==
+
+loop Mỗi 1 giờ
+    Scheduler -> CacheService: Chạy chu kỳ dọn dẹp
+    activate CacheService
+    
+    CacheService -> Redis: Tìm thư mục hết hạn
+    Redis --> CacheService: Danh sách thư mục hết hạn
+    
+    loop Cho mỗi thư mục hết hạn
+        CacheService -> FileSystem: Xóa thư mục
+        FileSystem --> CacheService: Xác nhận xóa
+        CacheService -> Redis: DEL dir:{path}
+        CacheService -> Redis: ZREM cache:lru path
+        CacheService -> Redis: DECRBY cache:bytes size
+    end
+    
+    CacheService -> Redis: Kiểm tra quota lại
+    alt Vẫn vượt quota
+        CacheService -> Redis: ZRANGE cache:lru 0 -1
+        Redis --> CacheService: Thư mục LRU
+        CacheService -> FileSystem: Xóa thư mục LRU
+        CacheService -> Redis: Cập nhật cache
+    end
+    
+    CacheService --> Scheduler: Báo cáo kết quả dọn dẹp
+    deactivate CacheService
+end
+
+== API quản lý cache (Admin) ==
+
+User -> Frontend: Truy cập trang quản lý cache
+Frontend -> CacheService: GET /cache/stats
+activate CacheService
+CacheService -> Redis: GET cache:bytes
+Redis --> CacheService: Tổng dung lượng
+CacheService -> Redis: ZCARD cache:lru
+Redis --> CacheService: Số thư mục cache
+CacheService -> Redis: ZRANGE cache:lru 0 9
+Redis --> CacheService: 10 thư mục LRU
+CacheService --> Frontend: Thống kê cache
+Frontend --> User: Hiển thị dashboard cache
+deactivate CacheService
+
+== Dọn dẹp thủ công ==
+
+User -> Frontend: Nhấn "Dọn dẹp cache"
+Frontend -> CacheService: POST /cache/cleanup
+activate CacheService
+CacheService -> CacheService: Chạy dọn dẹp ngay lập tức
+CacheService -> Redis: Tìm thư mục hết hạn
+CacheService -> FileSystem: Xóa thư mục hết hạn
+CacheService -> Redis: Cập nhật cache
+CacheService --> Frontend: Báo cáo kết quả
+Frontend --> User: Hiển thị "Đã dọn dẹp X thư mục"
+deactivate CacheService
+
+== Lợi ích cho người dùng ==
+
+note over User, Frontend
+  **Trải nghiệm người dùng:**
+  - Tự động quản lý dung lượng → Không lo đầy ổ cứng
+  - Tải nhanh hơn → File đã cache sẵn
+  - Giao diện quản lý → Kiểm soát cache dễ dàng
+  - Thông báo rõ ràng → Biết được trạng thái hệ thống
+end note
+
+== Lợi ích cho hệ thống ==
+
+note over CacheService, Redis
+  **Tối ưu hệ thống:**
+  - TTL tự động → Không cần can thiệp thủ công
+  - LRU eviction → Giữ lại file quan trọng nhất
+  - Quota enforcement → Tránh đầy ổ cứng
+  - Background cleanup → Không ảnh hưởng performance
+  - Redis tracking → Quản lý cache hiệu quả
+end note
+
+== Xử lý lỗi ==
+
+alt Redis không khả dụng
+    CacheService -> CacheService: Chuyển sang in-memory mode
+    note right: Vẫn hoạt động nhưng mất cache management
+    CacheService --> DownloadService: Cảnh báo offline mode
+    DownloadService --> Frontend: Thông báo "Chế độ đơn giản"
+    Frontend --> User: Hiển thị cảnh báo nhẹ
+end
+
+alt FileSystem lỗi
+    CacheService -> FileSystem: Xóa thư mục
+    FileSystem --> CacheService: Lỗi quyền truy cập
+    CacheService -> Redis: DEL dir:{path} (force cleanup)
+    CacheService --> Scheduler: Báo cáo lỗi
+    Scheduler --> Frontend: Log lỗi
+    Frontend --> User: Thông báo "Một số file không thể xóa"
+end
+
+== Cấu hình linh hoạt ==
+
+note over CacheService
+  **Cấu hình cho admin:**
+  - TTL: 24 giờ (có thể điều chỉnh)
+  - Quota: 90% dung lượng tối đa
+  - Cleanup interval: 1 giờ
+  - LRU threshold: 10 thư mục
+  - Có thể tắt/bật qua feature flag
+end note
+
+== Monitoring và báo cáo ==
+
+loop Mỗi ngày
+    Scheduler -> CacheService: Tạo báo cáo hàng ngày
+    CacheService -> Redis: Thống kê cache
+    CacheService -> FileSystem: Kiểm tra dung lượng thực tế
+    CacheService --> Scheduler: Báo cáo chi tiết
+    note right: Theo dõi hiệu quả cache, phát hiện vấn đề
+end
+
+@enduml

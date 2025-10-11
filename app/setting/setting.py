@@ -1,15 +1,59 @@
 from __future__ import annotations
 
-# Redis Configuration
-REDIS_URL = "redis://localhost:6379/0"
-REDIS_HOST = "localhost"
-REDIS_PORT = 6379
-REDIS_DB = 0
-REDIS_PASSWORD = None  # Set to password string if needed
+# Redis Configuration Mode
+REDIS_MODE = "cloud"
+
+# Local Redis Configuration
+REDIS_LOCAL_URL = "redis://localhost:6379/0"
+REDIS_LOCAL_HOST = "localhost"
+REDIS_LOCAL_PORT = 6379
+REDIS_LOCAL_DB = 0
+REDIS_LOCAL_PASSWORD = None
+
+# Cloud Redis Configuration
+REDIS_CLOUD_URL = "redis://redis-18425.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com:18425/0"
+REDIS_CLOUD_HOST = "redis-18425.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com"
+REDIS_CLOUD_PORT = 18425
+REDIS_CLOUD_DB = 0
+REDIS_CLOUD_PASSWORD = "hu8fSwozwhIjHMTfDs7bz6UYtrt4Ct8e"
+
+# Dynamic Redis Configuration (based on mode)
+def get_redis_config():
+    if REDIS_MODE == "cloud":
+        return {
+            "url": REDIS_CLOUD_URL,
+            "host": REDIS_CLOUD_HOST,
+            "port": REDIS_CLOUD_PORT,
+            "db": REDIS_CLOUD_DB,
+            "password": REDIS_CLOUD_PASSWORD
+        }
+    else:  # localhost
+        return {
+            "url": REDIS_LOCAL_URL,
+            "host": REDIS_LOCAL_HOST,
+            "port": REDIS_LOCAL_PORT,
+            "db": REDIS_LOCAL_DB,
+            "password": REDIS_LOCAL_PASSWORD
+        }
+
+# Current Redis Configuration
+redis_config = get_redis_config()
+REDIS_URL = redis_config["url"]
+REDIS_HOST = redis_config["host"]
+REDIS_PORT = redis_config["port"]
+REDIS_DB = redis_config["db"]
+REDIS_PASSWORD = redis_config["password"]
 
 # Cache Configuration
 CACHE_TTL_SECONDS = 86400  # 24 hours
 CACHE_MAX_BYTES = 0  # 0 = unlimited
+
+# Disk Cache Management
+ENABLE_DISK_CACHE_MANAGEMENT = True  # Enable disk cache TTL + quota management
+DISK_CACHE_TTL_SECONDS = 86400  # 24 hours TTL for directories
+DISK_CACHE_MAX_BYTES = 10 * 1024 * 1024 * 1024  # 10GB default quota
+DISK_CACHE_CLEANUP_INTERVAL = 3600  # 1 hour cleanup interval
+DISK_CACHE_LRU_EVICTION_THRESHOLD = 0.9  # Start eviction at 90% quota
 
 # Feature Flags
 ENABLE_SPOTIFY = False

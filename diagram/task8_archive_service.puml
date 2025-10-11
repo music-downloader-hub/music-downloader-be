@@ -1,0 +1,167 @@
+@startuml Task8_Archive_Service
+!theme plain
+title Task 8: Tạo file nén theo yêu cầu
+
+actor "Người dùng" as User
+participant "Giao diện Web" as Frontend
+participant "Archive API" as ArchiveAPI
+participant "Archive Service" as ArchiveService
+participant "Background Tasks" as BackgroundTasks
+participant "Hệ thống File" as FileSystem
+participant "Temp Directory" as TempDir
+
+== Tạo file nén từ đường dẫn ==
+
+User -> Frontend: Nhấn "Tải file nén"
+Frontend -> ArchiveAPI: GET /archive?path=Artist/Album
+activate ArchiveAPI
+
+ArchiveAPI -> ArchiveService: create_archive_from_path(path)
+activate ArchiveService
+
+ArchiveService -> ArchiveService: Xác thực đường dẫn
+note right: Kiểm tra path có nằm trong downloads root
+
+ArchiveService -> FileSystem: Đọc nội dung thư mục
+FileSystem --> ArchiveService: Danh sách file và thư mục con
+note right: Đọc tất cả file .m4a, .jpg, .mp3, etc.
+
+ArchiveService -> TempDir: Tạo thư mục tạm thời
+TempDir --> ArchiveService: Đường dẫn thư mục tạm
+
+ArchiveService -> ArchiveService: Tạo tên file ZIP
+note right: Format: "Artist - Album - YYYY-MM-DD.zip"
+
+ArchiveService -> ArchiveService: Sử dụng shutil.make_archive()
+note right: Tạo ZIP từ thư mục nguồn
+
+ArchiveService -> BackgroundTasks: Lên lịch dọn dẹp
+activate BackgroundTasks
+BackgroundTasks --> ArchiveService: Task đã được lên lịch
+deactivate BackgroundTasks
+
+ArchiveService --> ArchiveAPI: Trả về FileResponse
+deactivate ArchiveService
+
+ArchiveAPI --> Frontend: Gửi file ZIP
+Frontend --> User: Bắt đầu tải file ZIP
+deactivate ArchiveAPI
+
+== Dọn dẹp file tạm thời ==
+
+BackgroundTasks -> TempDir: Xóa file ZIP tạm thời
+TempDir --> BackgroundTasks: Xác nhận xóa
+note right: Tự động dọn dẹp sau khi user tải xong
+
+== Tạo file nén từ job ==
+
+User -> Frontend: Nhấn "Tải file nén" từ job
+Frontend -> ArchiveAPI: GET /downloads/{job_id}/archive
+activate ArchiveAPI
+
+ArchiveAPI -> ArchiveService: create_archive_from_job(job_created_at)
+activate ArchiveService
+
+ArchiveService -> ArchiveService: Tìm thư mục phù hợp nhất
+note right: Tìm thư mục được tạo gần thời điểm job nhất
+
+ArchiveService -> FileSystem: Đọc nội dung thư mục
+FileSystem --> ArchiveService: Danh sách file
+
+ArchiveService -> TempDir: Tạo thư mục tạm thời
+ArchiveService -> ArchiveService: Tạo file ZIP
+ArchiveService -> BackgroundTasks: Lên lịch dọn dẹp
+
+ArchiveService --> ArchiveAPI: Trả về FileResponse
+deactivate ArchiveService
+
+ArchiveAPI --> Frontend: Gửi file ZIP
+Frontend --> User: Bắt đầu tải file ZIP
+deactivate ArchiveAPI
+
+== Lợi ích cho người dùng ==
+
+note over User, Frontend
+  **Trải nghiệm người dùng:**
+  - Tải nhiều file cùng lúc → Tiện lợi, không phải tải từng file
+  - Tên file có ý nghĩa → Dễ nhận biết nội dung
+  - Tự động dọn dẹp → Không lo đầy ổ cứng
+  - Tải nhanh → File ZIP được tạo tối ưu
+  - Giao diện đơn giản → Chỉ cần nhấn 1 nút
+end note
+
+== Lợi ích cho hệ thống ==
+
+note over ArchiveService, TempDir
+  **Tối ưu hệ thống:**
+  - Background cleanup → Không block response
+  - Temp directory → Tránh conflict khi nhiều user
+  - Path validation → Bảo mật, tránh directory traversal
+  - Memory efficient → Không load toàn bộ file vào RAM
+  - Error handling → Graceful fallback khi lỗi
+end note
+
+== Xử lý lỗi ==
+
+alt Đường dẫn không hợp lệ
+    ArchiveService -> ArchiveService: Validate path
+    ArchiveService --> ArchiveAPI: Lỗi "Đường dẫn không hợp lệ"
+    ArchiveAPI --> Frontend: HTTP 400 Bad Request
+    Frontend --> User: Hiển thị "Đường dẫn không hợp lệ"
+end
+
+alt Thư mục không tồn tại
+    ArchiveService -> FileSystem: Đọc thư mục
+    FileSystem --> ArchiveService: Lỗi "Thư mục không tồn tại"
+    ArchiveService --> ArchiveAPI: Lỗi "Không tìm thấy thư mục"
+    ArchiveAPI --> Frontend: HTTP 404 Not Found
+    Frontend --> User: Hiển thị "Không tìm thấy thư mục"
+end
+
+alt Lỗi tạo file ZIP
+    ArchiveService -> ArchiveService: Tạo ZIP
+    ArchiveService --> ArchiveAPI: Lỗi "Không thể tạo file nén"
+    ArchiveAPI --> Frontend: HTTP 500 Internal Server Error
+    Frontend --> User: Hiển thị "Lỗi tạo file nén"
+end
+
+== Bảo mật ==
+
+note over ArchiveService
+  **Bảo mật:**
+  - Path validation → Chỉ cho phép truy cập downloads root
+  - Sanitize filename → Tránh ký tự đặc biệt
+  - Temp directory isolation → Mỗi request có thư mục riêng
+  - Auto cleanup → Không để lại file tạm thời
+end note
+
+== Performance optimization ==
+
+note over ArchiveService, TempDir
+  **Tối ưu hiệu suất:**
+  - Streaming response → Không load toàn bộ file vào RAM
+  - Background cleanup → Response nhanh hơn
+  - Temp directory → Tránh conflict I/O
+  - Efficient compression → Cân bằng size vs speed
+end note
+
+== Monitoring và logging ==
+
+ArchiveService -> ArchiveService: Log tạo file ZIP
+note right: Ghi log: user_id, path, file_size, duration
+
+ArchiveService -> ArchiveService: Metrics collection
+note right: Theo dõi: số lượng request, thời gian tạo, dung lượng file
+
+== Cấu hình linh hoạt ==
+
+note over ArchiveService
+  **Cấu hình:**
+  - Max file size: 2GB per archive
+  - Temp directory: System temp với prefix "amd-zip-"
+  - Cleanup timeout: 1 giờ sau khi tạo
+  - Supported formats: ZIP only
+  - Compression level: Balanced (size vs speed)
+end note
+
+@enduml

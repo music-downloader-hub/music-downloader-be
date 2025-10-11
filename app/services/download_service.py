@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import time
+from pathlib import Path
 from typing import List, Optional
 
 from ..schemas.download_schemas import (
@@ -13,6 +15,9 @@ from ..schemas.job_schemas import JobResponse
 from ..core.debug_parser import parse_debug_tracks
 from ..core.dedupe import dedupe_service
 from .job_service import JobService
+from .cache_service import CacheService
+
+logger = logging.getLogger(__name__)
 
 
 class DownloadService:
@@ -20,6 +25,22 @@ class DownloadService:
     
     def __init__(self, job_service: JobService):
         self.job_service = job_service
+        # Initialize cache service
+        downloads_root = self._find_downloads_root()
+        self.cache_service = CacheService(downloads_root)
+    
+    def _find_downloads_root(self) -> Path:
+        """Find the AM-DL downloads root directory."""
+        # AM-DL downloads is now at the project root level
+        # Go from backend/app/services/ to project root
+        project_root = Path(__file__).parent.parent.parent.parent.parent
+        downloads_path = project_root / "AM-DL downloads"
+        
+        if downloads_path.exists() and downloads_path.is_dir():
+            return downloads_path
+        
+        # Fallback to current directory if not found
+        return Path.cwd() / "AM-DL downloads"
 
     def _extract_download_options(self, request: DownloadRequest) -> dict:
         """Extract download options for deduplication key generation."""
@@ -116,6 +137,37 @@ class DownloadService:
                 continue
         
         return BatchDownloadResponse(jobs=results)
+    
+    def register_completed_download(self, job_id: str) -> bool:
+        """
+        Register a completed download in the cache system.
+        This should be called when a download job completes successfully.
+        """
+        try:
+            # Get job info to find the output directory
+            job = self.job_service.get_job(job_id)
+            if not job or job.status != "completed":
+                return False
+            
+            # Find the most recently created directory in downloads root
+            downloads_root = self.cache_service.downloads_root
+            if not downloads_root.exists():
+                return False
+            
+            # Get all subdirectories and find the most recent one
+            subdirs = [d for d in downloads_root.iterdir() if d.is_dir()]
+            if not subdirs:
+                return False
+            
+            # Sort by modification time (most recent first)
+            latest_dir = max(subdirs, key=lambda d: d.stat().st_mtime)
+            
+            # Register in cache
+            return self.cache_service.register_directory(latest_dir)
+            
+        except Exception as e:
+            logger.error(f"Failed to register completed download {job_id}: {e}")
+            return False
 
     def start_debug_download(self, request: DownloadRequest) -> DebugResponse:
         """Start a debug download and return parsed debug information."""

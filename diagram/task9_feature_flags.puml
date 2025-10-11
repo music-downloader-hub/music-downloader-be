@@ -1,0 +1,201 @@
+@startuml Task9_Feature_Flags
+!theme plain
+title Task 9: Quản lý tính năng và cấu hình
+
+actor "Admin" as Admin
+actor "Người dùng" as User
+participant "Environment Variables" as EnvVars
+participant "Setting Configuration" as Setting
+participant "Backend Services" as Services
+participant "API Router" as APIRouter
+participant "Frontend" as Frontend
+
+== Khởi động hệ thống ==
+
+Admin -> EnvVars: Thiết lập biến môi trường
+note right: HOST, PORT, REDIS_URL, ENABLE_*
+
+EnvVars -> Setting: Load cấu hình
+activate Setting
+Setting -> Setting: Đọc từ .env file
+Setting -> Setting: Override với environment variables
+Setting --> Services: Gửi cấu hình
+deactivate Setting
+
+== Cấu hình Redis ==
+
+Services -> Setting: Kiểm tra ENABLE_REDIS
+Setting --> Services: true/false
+
+alt Redis được bật
+    Services -> Services: Khởi tạo Redis connection
+    Services -> Services: Bật Redis features
+    note right: Job persistence, progress tracking, logs
+else Redis bị tắt
+    Services -> Services: Chuyển sang in-memory mode
+    note right: Chỉ lưu trong RAM, mất khi restart
+end
+
+== Cấu hình tính năng ==
+
+Services -> Setting: Kiểm tra ENABLE_DEDUPLICATION
+Setting --> Services: true/false
+
+alt Deduplication được bật
+    Services -> Services: Bật tránh tải trùng lặp
+    note right: Tiết kiệm tài nguyên, tăng hiệu suất
+else Deduplication bị tắt
+    Services -> Services: Cho phép tải trùng lặp
+    note right: Mỗi request tạo job riêng
+end
+
+Services -> Setting: Kiểm tra ENABLE_DISK_CACHE_MANAGEMENT
+Setting --> Services: true/false
+
+alt Cache management được bật
+    Services -> Services: Bật quản lý cache đĩa
+    note right: TTL, LRU, quota enforcement
+else Cache management bị tắt
+    Services -> Services: Không quản lý cache
+    note right: File tải về không bị xóa tự động
+end
+
+== Cấu hình API routes ==
+
+Services -> APIRouter: Cấu hình routes
+APIRouter -> Setting: Kiểm tra ENABLE_DISK_CACHE_MANAGEMENT
+Setting --> APIRouter: true/false
+
+alt Cache management được bật
+    APIRouter -> APIRouter: Include cache routes
+    note right: /cache/stats, /cache/cleanup, etc.
+else Cache management bị tắt
+    APIRouter -> APIRouter: Skip cache routes
+    note right: API cache không khả dụng
+end
+
+APIRouter -> Setting: Kiểm tra ENABLE_SPOTIFY
+Setting --> APIRouter: true/false
+
+alt Spotify được bật
+    APIRouter -> APIRouter: Include Spotify routes
+    note right: /spotify/token, /spotify/search, etc.
+else Spotify bị tắt
+    APIRouter -> APIRouter: Skip Spotify routes
+    note right: Tính năng Spotify không khả dụng
+end
+
+== Trải nghiệm người dùng ==
+
+User -> Frontend: Truy cập ứng dụng
+Frontend -> APIRouter: Kiểm tra API khả dụng
+APIRouter --> Frontend: Danh sách endpoints
+
+alt Cache management được bật
+    Frontend -> User: Hiển thị nút "Quản lý cache"
+    note right: Người dùng có thể xem thống kê cache
+else Cache management bị tắt
+    Frontend -> User: Ẩn nút "Quản lý cache"
+    note right: Giao diện đơn giản hơn
+end
+
+alt Spotify được bật
+    Frontend -> User: Hiển thị tính năng Spotify
+    note right: Tìm kiếm, playlist, etc.
+else Spotify bị tắt
+    Frontend -> User: Ẩn tính năng Spotify
+    note right: Chỉ có Apple Music
+end
+
+== Lợi ích cho người dùng ==
+
+note over User, Frontend
+  **Trải nghiệm người dùng:**
+  - Giao diện phù hợp → Chỉ hiển thị tính năng khả dụng
+  - Hiệu suất tối ưu → Tính năng không cần thiết bị tắt
+  - Trải nghiệm nhất quán → Không bị lỗi từ tính năng tắt
+  - Cấu hình linh hoạt → Admin có thể điều chỉnh theo nhu cầu
+end note
+
+== Lợi ích cho admin ==
+
+note over Admin, Setting
+  **Quản lý hệ thống:**
+  - Bật/tắt tính năng dễ dàng → Không cần sửa code
+  - Cấu hình linh hoạt → Điều chỉnh theo môi trường
+  - Monitoring rõ ràng → Biết tính năng nào đang hoạt động
+  - Rollback nhanh → Tắt tính năng có vấn đề ngay lập tức
+end note
+
+== Cấu hình hiệu suất ==
+
+Services -> Setting: Kiểm tra ENABLE_REDIS_LOGS
+Setting --> Services: true/false
+
+alt Redis logs được bật
+    Services -> Services: Lưu log vào Redis
+    note right: Persistent, có thể xem lại
+else Redis logs bị tắt
+    Services -> Services: Chỉ lưu log trong RAM
+    note right: Nhanh hơn nhưng mất khi restart
+end
+
+Services -> Setting: Kiểm tra ENABLE_REDIS_PROGRESS
+Setting --> Services: true/false
+
+alt Redis progress được bật
+    Services -> Services: Lưu tiến trình vào Redis
+    note right: Có thể theo dõi từ nhiều client
+else Redis progress bị tắt
+    Services -> Services: Chỉ lưu tiến trình trong RAM
+    note right: Nhanh hơn nhưng mất khi restart
+end
+
+== Xử lý lỗi cấu hình ==
+
+alt Cấu hình không hợp lệ
+    Setting -> Setting: Validate configuration
+    Setting --> Services: Lỗi cấu hình
+    Services -> Services: Sử dụng giá trị mặc định
+    Services --> APIRouter: Cảnh báo cấu hình
+    APIRouter --> Frontend: Thông báo "Chế độ mặc định"
+    Frontend --> User: Hiển thị cảnh báo nhẹ
+end
+
+== Monitoring cấu hình ==
+
+note over Setting
+  **Theo dõi cấu hình:**
+  - Log tất cả thay đổi cấu hình
+  - Metrics về tính năng được sử dụng
+  - Alert khi cấu hình không hợp lệ
+  - Dashboard hiển thị trạng thái tính năng
+end note
+
+== Cấu hình mặc định ==
+
+note over Setting
+  **Giá trị mặc định:**
+  - ENABLE_REDIS: true
+  - ENABLE_DEDUPLICATION: true
+  - ENABLE_DISK_CACHE_MANAGEMENT: true
+  - ENABLE_SPOTIFY: false
+  - ENABLE_REDIS_LOGS: true
+  - ENABLE_REDIS_PROGRESS: true
+  - HOST: localhost
+  - PORT: 8080
+  - RELOAD: false
+end note
+
+== Hot reload cấu hình ==
+
+Admin -> EnvVars: Thay đổi biến môi trường
+EnvVars -> Setting: Reload cấu hình
+Setting -> Setting: Đọc lại cấu hình
+Setting --> Services: Cập nhật cấu hình
+Services -> Services: Áp dụng cấu hình mới
+Services --> APIRouter: Cập nhật routes
+APIRouter --> Frontend: Thông báo cấu hình mới
+Frontend --> User: Cập nhật giao diện
+
+@enduml
