@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import List
 
-from .models import Variant, AvailableFormats, TrackDebug
+from ..schemas.debug_schemas import Variant, AvailableFormats, TrackDebug
 
 
 VARIANT_ROW = re.compile(r"^\|\s*(?P<codec>[^|]+?)\s*\|\s*(?P<audio>[^|]+?)\s*\|\s*(?P<bandwidth>\d+)\s*\|")
@@ -72,5 +72,3 @@ def _normalize_value(value: str | None) -> str | None:
 
 def _looks_like_track_name(line: str) -> bool:
     return bool(re.match(r"^\d{1,3}\.\s+", line))
-
-

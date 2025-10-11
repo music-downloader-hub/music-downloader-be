@@ -209,5 +209,3 @@ def start_process(
     )
     collector = ProcessIOCollector(proc, on_line=on_line)
     return proc, collector, repo_root
-
-

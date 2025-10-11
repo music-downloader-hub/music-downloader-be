@@ -1,0 +1,173 @@
+{
+  "hang_muc": [
+    {
+      "id": 1,
+      "ten": "Redis job store & progress",
+      "de_lam_gi": "Lưu và chia sẻ trạng thái job",
+      "toi_uu_cho": "Scale đa instance, phục hồi sau restart",
+      "chien_luoc": [
+        "Hash jobs:{id}, Hash jobs:{id}:progress",
+        "List/Stream jobs:{id}:logs với TTL"
+      ],
+      "techstack": ["Redis", "redis-py", "FastAPI"],
+      "ngu_canh_su_dung_thuc_te": "Triển khai nhiều instance API/worker; cần chia sẻ job và progress realtime"
+    },
+    {
+      "id": 2,
+      "ten": "Dedupe/Idempotency lock",
+      "de_lam_gi": "Chống chạy trùng cùng URL/biến thể",
+      "toi_uu_cho": "Giảm tải, tiết kiệm tài nguyên",
+      "chien_luoc": [
+        "SETNX lock:{content_key} với TTL",
+        "Trả về job hiện có nếu nội dung trùng"
+      ],
+      "techstack": ["Redis"],
+      "ngu_canh_su_dung_thuc_te": "Nhiều người cùng yêu cầu 1 bài/biến thể; gom về 1 job, tránh tải trùng"
+    },
+    {
+      "id": 3,
+      "ten": "Disk cache TTL + Quota (LRU)",
+      "de_lam_gi": "Quản lý dung lượng audio",
+      "toi_uu_cho": "Không tràn đĩa, vẫn hit cache nhanh",
+      "chien_luoc": [
+        "TTL dir:{path}",
+        "ZSET cache:lru (last_access)",
+        "Key cache:bytes và xóa LRU khi vượt quota"
+      ],
+      "techstack": ["Redis", "Python scheduler"],
+      "ngu_canh_su_dung_thuc_te": "Server công cộng dung lượng hữu hạn; tránh tràn đĩa nhưng vẫn giữ cache nóng"
+    },
+    {
+      "id": 4,
+      "ten": "Cleaner nền theo TTL",
+      "de_lam_gi": "Dọn thư mục hết hạn",
+      "toi_uu_cho": "Tối ưu dung lượng tự động",
+      "chien_luoc": [
+        "Quét AM-DL downloads/", "Nếu thiếu dir:{path} thì xóa",
+        "Khóa lock:dir:{path} khi xóa"
+      ],
+      "techstack": ["FastAPI BackgroundTasks", "shutil"],
+      "ngu_canh_su_dung_thuc_te": "Tự dọn thư mục khi hết nhu cầu truy cập; giảm vận hành thủ công"
+    },
+    {
+      "id": 5,
+      "ten": "SSE/events distribution",
+      "de_lam_gi": "Phát sự kiện tiến độ đa process",
+      "toi_uu_cho": "Realtime, scale ngang",
+      "chien_luoc": [
+        "Pub/Sub jobs:{id}:events hoặc Streams + XREAD",
+        "API SSE chuyển tiếp sự kiện"
+      ],
+      "techstack": ["Redis Pub/Sub", "Redis Streams", "FastAPI"],
+      "ngu_canh_su_dung_thuc_te": "Frontend theo dõi tiến độ từ nhiều instance; cần fan-out sự kiện ổn định"
+    },
+    {
+      "id": 6,
+      "ten": "Logs storage & tail",
+      "de_lam_gi": "Lưu và tua logs hiệu quả",
+      "toi_uu_cho": "Giảm RAM, truy vấn last_n nhanh",
+      "chien_luoc": [
+        "RPUSH jobs:{id}:logs",
+        "LTRIM giữ N dòng hoặc dùng Streams"
+      ],
+      "techstack": ["Redis"],
+      "ngu_canh_su_dung_thuc_te": "UI cần xem log tail; trả nhanh last_n, không giữ log khổng lồ trong RAM"
+    },
+    {
+      "id": 7,
+      "ten": "Batch queue & concurrency",
+      "de_lam_gi": "Điều tiết số tiến trình CLI",
+      "toi_uu_cho": "Ổn định tải, tránh nghẽn I/O",
+      "chien_luoc": [
+        "Redis List/Streams làm queue",
+        "Worker Python chạy go run, giới hạn concurrency"
+      ],
+      "techstack": ["Redis", "Python worker", "(tùy chọn) RQ/Arq/Celery"],
+      "ngu_canh_su_dung_thuc_te": "Lượng yêu cầu cao; giới hạn số tiến trình go run đồng thời để ổn định I/O"
+    },
+    {
+      "id": 8,
+      "ten": "Archive on-demand & cleanup",
+      "de_lam_gi": "Tạo ZIP khi tải về",
+      "toi_uu_cho": "Tiết kiệm đĩa, không giữ file tạm",
+      "chien_luoc": [
+        "Tạo ZIP tạm bằng shutil",
+        "Xóa bằng BackgroundTasks sau khi gửi"
+      ],
+      "techstack": ["FastAPI", "shutil"],
+      "ngu_canh_su_dung_thuc_te": "Người dùng tải ZIP on-demand; xóa file tạm sau khi gửi để tiết kiệm đĩa"
+    },
+    {
+      "id": 9,
+      "ten": "Feature flags & config",
+      "de_lam_gi": "Bật/tắt tính năng an toàn",
+      "toi_uu_cho": "Triển khai linh hoạt",
+      "chien_luoc": [
+        "Biến môi trường ENABLE_*, REDIS_URL",
+        "CACHE_MAX_BYTES, CACHE_TTL_SECONDS"
+      ],
+      "techstack": ["dotenv", "env vars"],
+      "ngu_canh_su_dung_thuc_te": "Bật/tắt nhanh Spotify/Redis/cleaner theo môi trường; rollout an toàn"
+    },
+    {
+      "id": 10,
+      "ten": "Observability & metrics",
+      "de_lam_gi": "Theo dõi hiệu năng và lỗi",
+      "toi_uu_cho": "Tối ưu vận hành",
+      "chien_luoc": [
+        "Counters job theo trạng thái",
+        "Prometheus exporter, structured logging"
+      ],
+      "techstack": ["Prometheus", "Grafana", "logfmt/json"],
+      "ngu_canh_su_dung_thuc_te": "Theo dõi tỉ lệ lỗi, latency tải; điều chỉnh TTL/quota dựa trên metrics"
+    },
+    {
+      "id": 11,
+      "ten": "Horizontal scaling",
+      "de_lam_gi": "Chạy nhiều instance API/worker",
+      "toi_uu_cho": "Tăng thông lượng",
+      "chien_luoc": [
+        "Stateless API, chia sẻ trạng thái qua Redis",
+        "Reverse proxy cân bằng tải"
+      ],
+      "techstack": ["Redis", "Nginx/Caddy", "Docker/systemd"],
+      "ngu_canh_su_dung_thuc_te": "Scale out theo tải; cân bằng giữa nhiều process/máy, chia sẻ trạng thái qua Redis"
+    },
+    {
+      "id": 12,
+      "ten": "Security & abuse control",
+      "de_lam_gi": "Chống lạm dụng",
+      "toi_uu_cho": "Ổn định dịch vụ",
+      "chien_luoc": [
+        "Rate limit theo IP/API key (token bucket)",
+        "Size/timeouts, sandbox tiến trình CLI"
+      ],
+      "techstack": ["Redis", "FastAPI middleware/deps"],
+      "ngu_canh_su_dung_thuc_te": "Chặn spam/tải ồ ạt; bảo vệ tài nguyên và chất lượng dịch vụ"
+    },
+    {
+      "id": 13,
+      "ten": "Resilience & recovery",
+      "de_lam_gi": "Chịu lỗi và tự phục hồi",
+      "toi_uu_cho": "Giảm downtime",
+      "chien_luoc": [
+        "Retry có backoff",
+        "Phát hiện process zombie, resume từ Redis khi restart"
+      ],
+      "techstack": ["Redis", "psutil"],
+      "ngu_canh_su_dung_thuc_te": "Job/tiến trình có thể lỗi; tự phục hồi, resume trạng thái sau restart"
+    },
+    {
+      "id": 14,
+      "ten": "Optional object storage",
+      "de_lam_gi": "Lưu audio ngoài ổ máy",
+      "toi_uu_cho": "Mở rộng dung lượng, lifecycle tự động",
+      "chien_luoc": [
+        "Local cache nóng + nguồn chính S3/MinIO",
+        "Lifecycle 1–2 ngày"
+      ],
+      "techstack": ["S3/MinIO", "boto3/minio-py"],
+      "ngu_canh_su_dung_thuc_te": "Kho bài hát lớn; lưu ở object storage với lifecycle, local chỉ cache nóng"
+    }
+  ]
+}
