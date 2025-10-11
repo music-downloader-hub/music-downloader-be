@@ -54,8 +54,8 @@
       ],
       "techstack": ["FastAPI BackgroundTasks", "shutil"],
       "ngu_canh_su_dung_thuc_te": "Tự dọn thư mục khi hết nhu cầu truy cập; giảm vận hành thủ công",
-      "status": "not_implemented",
-      "implementation": "Chưa triển khai. Cần implement background cleaner để tự động dọn thư mục hết hạn."
+      "status": "completed",
+      "implementation": "CleanerService với background scheduler chạy định kỳ. Quét AM-DL downloads/, kiểm tra Redis TTL, xóa thư mục hết hạn. Có lock mechanism tránh xung đột. API endpoints /cleaner/* để quản lý. Tích hợp permanent save - copy file vào thư mục cá nhân trước khi xóa cache."
     },
     {
       "id": 5,

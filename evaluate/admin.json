@@ -1,0 +1,457 @@
+{
+  "admin_apis": {
+    "cache_management": {
+      "description": "Quản lý cache system - TTL, LRU eviction, thống kê",
+      "base_path": "/cache",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/cache/stats",
+          "description": "Lấy thống kê cache system",
+          "response": {
+            "enabled": true,
+            "total_bytes": 1073741824,
+            "total_directories": 25,
+            "max_bytes": 10737418240,
+            "usage_percent": 10.0,
+            "quota_exceeded": false
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/cache/directories",
+          "description": "Danh sách thư mục được cache",
+          "query_params": {
+            "limit": "int (1-1000, default: 100)"
+          },
+          "response": {
+            "directories": [
+              {
+                "path": "Artist/Album",
+                "ttl_seconds": 72000,
+                "last_access": "2024-12-19T10:30:00",
+                "size_bytes": 52428800,
+                "exists": true
+              }
+            ],
+            "count": 1
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/cache/directories/{path}",
+          "description": "Thông tin chi tiết thư mục cache",
+          "path_params": {
+            "path": "string - đường dẫn thư mục"
+          },
+          "response": {
+            "path": "Artist/Album",
+            "ttl_seconds": 72000,
+            "last_access": "2024-12-19T10:30:00",
+            "size_bytes": 52428800,
+            "exists": true
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/cache/cleanup",
+          "description": "Chạy cleanup cache (expired + quota enforcement)",
+          "response": {
+            "message": "Cache cleanup started in background"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/cache/directories/{path}/touch",
+          "description": "Cập nhật thời gian truy cập thư mục (extend TTL)",
+          "path_params": {
+            "path": "string - đường dẫn thư mục"
+          },
+          "response": {
+            "message": "Directory Artist/Album touched successfully"
+          }
+        },
+        {
+          "method": "DELETE",
+          "path": "/cache/directories/{path}",
+          "description": "Xóa thư mục khỏi cache tracking",
+          "path_params": {
+            "path": "string - đường dẫn thư mục"
+          },
+          "query_params": {
+            "remove_files": "boolean (default: false) - có xóa file trên disk không"
+          },
+          "response": {
+            "message": "Directory Artist/Album removed from cache successfully"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/cache/directories/{path}/register",
+          "description": "Đăng ký thư mục vào cache system",
+          "path_params": {
+            "path": "string - đường dẫn thư mục"
+          },
+          "response": {
+            "message": "Directory Artist/Album registered successfully"
+          }
+        }
+      ]
+    },
+    "cleaner_management": {
+      "description": "Quản lý background cleaner - TTL cleanup, permanent save",
+      "base_path": "/cleaner",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/cleaner/stats",
+          "description": "Thống kê cleaner service và cấu hình",
+          "response": {
+            "enabled": true,
+            "downloads_root": "D:/Code/AppleMusicDownloader/AM-DL downloads",
+            "permanent_save_enabled": true,
+            "permanent_save_dir": "C:/Users/NovaSeele/Music",
+            "redis_available": true,
+            "cleanup_interval": 1800
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/cleaner/run",
+          "description": "Chạy cleanup ngay lập tức",
+          "response": {
+            "message": "Cleanup completed",
+            "stats": {
+              "scanned": 15,
+              "expired": 3,
+              "locked": 0,
+              "copied": 3,
+              "removed": 3,
+              "errors": 0
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/cleaner/status",
+          "description": "Trạng thái background scheduler",
+          "response": {
+            "running": true,
+            "message": "Scheduler is running"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/cleaner/start",
+          "description": "Start background scheduler",
+          "response": {
+            "message": "Scheduler started successfully"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/cleaner/stop",
+          "description": "Stop background scheduler",
+          "response": {
+            "message": "Scheduler stopped successfully"
+          }
+        }
+      ]
+    },
+    "job_management": {
+      "description": "Quản lý download jobs - thống kê, logs, trạng thái",
+      "base_path": "/downloads",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/downloads/{job_id}",
+          "description": "Thông tin chi tiết job",
+          "path_params": {
+            "job_id": "string - ID của job"
+          },
+          "response": {
+            "job_id": "4ae4b211a899499bb6f5f2581a406b8f",
+            "status": "completed",
+            "return_code": 0,
+            "args": ["--debug", "https://music.apple.com/..."],
+            "created_at": 1760200154.56882,
+            "updated_at": 1760200161.5320914
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/downloads/{job_id}/progress",
+          "description": "Tiến độ download job",
+          "path_params": {
+            "job_id": "string - ID của job"
+          },
+          "response": {
+            "phase": "Completed",
+            "percent": 100,
+            "speed": "",
+            "downloaded": "39/39 MB",
+            "total": "39 MB",
+            "updated_at": 1760200161.5320914
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/downloads/{job_id}/logs",
+          "description": "Logs của job",
+          "path_params": {
+            "job_id": "string - ID của job"
+          },
+          "query_params": {
+            "last_n": "int (optional) - số dòng log cuối"
+          },
+          "response": [
+            "Downloading... 100% (39/39 MB, 7.0 MB/s)",
+            "Decrypting... 100% (39/39 MB, 15.2 MB/s)",
+            "Download completed successfully"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/downloads/{job_id}/archive",
+          "description": "Tải về file ZIP của job",
+          "path_params": {
+            "job_id": "string - ID của job"
+          },
+          "response": "FileResponse - ZIP file download"
+        }
+      ]
+    },
+    "system_health": {
+      "description": "Kiểm tra sức khỏe hệ thống",
+      "base_path": "/health",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Trạng thái sức khỏe hệ thống",
+          "response": {
+            "status": "healthy",
+            "timestamp": "2024-12-19T10:30:00Z",
+            "services": {
+              "redis": "connected",
+              "wrapper": "running",
+              "cleaner": "active"
+            },
+            "version": "1.0.0"
+          }
+        }
+      ]
+    },
+    "cli_management": {
+      "description": "Quản lý CLI wrapper service",
+      "base_path": "/cli",
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/cli/status",
+          "description": "Trạng thái wrapper service",
+          "response": {
+            "running": true,
+            "container_id": "abc123def456",
+            "started_at": "2024-12-19T09:00:00Z"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/cli/restart",
+          "description": "Restart wrapper service",
+          "response": {
+            "message": "Wrapper service restarted successfully"
+          }
+        }
+      ]
+    }
+  },
+  "admin_dashboard_features": {
+    "cache_overview": {
+      "title": "Cache Management",
+      "description": "Tổng quan và quản lý cache system",
+      "features": [
+        "Xem thống kê cache (dung lượng, số thư mục, usage %)",
+        "Danh sách thư mục được cache với TTL",
+        "Chạy cleanup thủ công",
+        "Xóa thư mục khỏi cache",
+        "Đăng ký thư mục mới vào cache"
+      ]
+    },
+    "cleaner_management": {
+      "title": "Background Cleaner",
+      "description": "Quản lý background cleaner service",
+      "features": [
+        "Xem cấu hình cleaner (TTL, interval, permanent save)",
+        "Chạy cleanup ngay lập tức",
+        "Start/Stop background scheduler",
+        "Xem thống kê cleanup (scanned, expired, removed, copied)"
+      ]
+    },
+    "job_monitoring": {
+      "title": "Job Monitoring",
+      "description": "Theo dõi và quản lý download jobs",
+      "features": [
+        "Xem danh sách jobs với trạng thái",
+        "Chi tiết job (args, created_at, updated_at)",
+        "Xem logs của job",
+        "Tải về archive của job"
+      ]
+    },
+    "system_monitoring": {
+      "title": "System Health",
+      "description": "Giám sát sức khỏe hệ thống",
+      "features": [
+        "Trạng thái Redis connection",
+        "Trạng thái wrapper service",
+        "Trạng thái background cleaner",
+        "Version và timestamp"
+      ]
+    }
+  },
+  "admin_ui_components": {
+    "cache_stats_card": {
+      "title": "Cache Statistics",
+      "data_source": "GET /cache/stats",
+      "display": [
+        "Total directories: {total_directories}",
+        "Total size: {total_bytes} bytes",
+        "Usage: {usage_percent}%",
+        "Quota exceeded: {quota_exceeded}"
+      ]
+    },
+    "cleaner_stats_card": {
+      "title": "Cleaner Statistics", 
+      "data_source": "GET /cleaner/stats",
+      "display": [
+        "Status: {enabled ? 'Enabled' : 'Disabled'}",
+        "Permanent Save: {permanent_save_enabled ? 'On' : 'Off'}",
+        "Cleanup Interval: {cleanup_interval} seconds",
+        "Downloads Root: {downloads_root}"
+      ]
+    },
+    "recent_cleanup_table": {
+      "title": "Recent Cleanup Activity",
+      "data_source": "POST /cleaner/run (manual trigger)",
+      "columns": [
+        "Timestamp",
+        "Scanned",
+        "Expired", 
+        "Removed",
+        "Copied",
+        "Errors"
+      ]
+    },
+    "cached_directories_table": {
+      "title": "Cached Directories",
+      "data_source": "GET /cache/directories",
+      "columns": [
+        "Path",
+        "Size",
+        "TTL Remaining",
+        "Last Access",
+        "Actions"
+      ],
+      "actions": [
+        "Touch (extend TTL)",
+        "Remove from cache",
+        "View details"
+      ]
+    },
+    "system_health_panel": {
+      "title": "System Health",
+      "data_source": "GET /health",
+      "indicators": [
+        "Redis: {services.redis}",
+        "Wrapper: {services.wrapper}",
+        "Cleaner: {services.cleaner}"
+      ]
+    }
+  },
+  "admin_settings": {
+    "cache_settings": {
+      "title": "Cache Configuration",
+      "settings": [
+        {
+          "key": "DISK_CACHE_TTL_SECONDS",
+          "label": "Cache TTL (seconds)",
+          "type": "number",
+          "default": 86400,
+          "description": "Thời gian sống của thư mục cache"
+        },
+        {
+          "key": "DISK_CACHE_MAX_BYTES", 
+          "label": "Max Cache Size (bytes)",
+          "type": "number",
+          "default": 10737418240,
+          "description": "Dung lượng tối đa cho cache"
+        },
+        {
+          "key": "DISK_CACHE_CLEANUP_INTERVAL",
+          "label": "Cleanup Interval (seconds)",
+          "type": "number", 
+          "default": 1800,
+          "description": "Tần suất chạy background cleaner"
+        },
+        {
+          "key": "DISK_CACHE_LRU_EVICTION_THRESHOLD",
+          "label": "LRU Eviction Threshold",
+          "type": "number",
+          "default": 0.9,
+          "description": "Ngưỡng bắt đầu xóa LRU (0.0-1.0)"
+        }
+      ]
+    },
+    "permanent_save_settings": {
+      "title": "Permanent Save Configuration",
+      "settings": [
+        {
+          "key": "PERMANENT_SAVE",
+          "label": "Enable Permanent Save",
+          "type": "boolean",
+          "default": true,
+          "description": "Bật/tắt lưu bản copy cá nhân"
+        },
+        {
+          "key": "PERMANENT_SAVE_DIR",
+          "label": "Permanent Save Directory",
+          "type": "string",
+          "default": "C:/Users/NovaSeele/Music",
+          "description": "Thư mục lưu bản copy cá nhân"
+        }
+      ]
+    }
+  },
+  "admin_workflows": {
+    "cache_cleanup_workflow": {
+      "title": "Cache Cleanup Workflow",
+      "steps": [
+        "1. Check cache stats to see current usage",
+        "2. Review cached directories list",
+        "3. Run manual cleanup if needed",
+        "4. Monitor cleanup results",
+        "5. Adjust settings if necessary"
+      ]
+    },
+    "permanent_save_workflow": {
+      "title": "Permanent Save Management",
+      "steps": [
+        "1. Check permanent save configuration",
+        "2. Verify permanent save directory exists",
+        "3. Monitor cleanup stats for 'copied' count",
+        "4. Adjust permanent save settings if needed"
+      ]
+    },
+    "system_maintenance_workflow": {
+      "title": "System Maintenance",
+      "steps": [
+        "1. Check system health status",
+        "2. Review job logs for errors",
+        "3. Restart services if needed",
+        "4. Monitor system performance"
+      ]
+    }
+  },
+  "last_updated": "2024-12-19"
+}

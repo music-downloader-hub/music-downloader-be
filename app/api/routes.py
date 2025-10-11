@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from .v1 import downloads, cli, health, spotify, cache
+from .v1 import downloads, cli, health, spotify, cache, cleaner
 from ..setting.setting import ENABLE_SPOTIFY, ENABLE_DISK_CACHE_MANAGEMENT
 
 
@@ -16,6 +16,7 @@ api_router.include_router(downloads.router, prefix="/downloads", tags=["download
 # Cache management
 if ENABLE_DISK_CACHE_MANAGEMENT:
     api_router.include_router(cache.router, prefix="/cache", tags=["cache"])
+    api_router.include_router(cleaner.router, prefix="/cleaner", tags=["cleaner"])
 
 # Optional (placeholder only, no routes)
 if ENABLE_SPOTIFY:

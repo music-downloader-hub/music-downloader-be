@@ -63,6 +63,21 @@
       "completion_date": "2024-12-19"
     },
     {
+      "id": "task4-background-cleaner",
+      "title": "Task 4: Background Cleaner với TTL + Permanent Save",
+      "status": "completed",
+      "priority": "high",
+      "category": "cache",
+      "description": "Tự động dọn thư mục cache hết hạn TTL và lưu bản copy cá nhân",
+      "implementation": "CleanerService với background scheduler chạy định kỳ 30 phút. Quét AM-DL downloads/, kiểm tra Redis TTL, xóa thư mục hết hạn. Có lock mechanism tránh xung đột. Tích hợp permanent save - copy file vào thư mục cá nhân trước khi xóa cache. API endpoints /cleaner/* để quản lý.",
+      "files_created": [
+        "backend/app/services/cleaner_service.py",
+        "backend/app/core/background_scheduler.py",
+        "backend/app/api/v1/cleaner.py"
+      ],
+      "completion_date": "2024-12-19"
+    },
+    {
       "id": "redis-cloud-integration",
       "title": "Redis Cloud Integration",
       "status": "completed",
@@ -74,13 +89,13 @@
     }
   ],
   "summary": {
-    "total_completed": 6,
-    "high_priority": 3,
+    "total_completed": 7,
+    "high_priority": 4,
     "medium_priority": 3,
     "categories": {
       "redis": 1,
       "performance": 1, 
-      "cache": 1,
+      "cache": 2,
       "architecture": 1,
       "integration": 1,
       "infrastructure": 1

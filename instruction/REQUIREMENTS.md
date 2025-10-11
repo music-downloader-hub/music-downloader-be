@@ -460,6 +460,42 @@ Docker Desktop 4.0+
 Docker Compose 2.0+
 ```
 
+## 🧹 Cache Management System
+
+### Background Cleaner Service
+- **Tự động dọn dẹp**: Chạy định kỳ mỗi 30 phút
+- **TTL-based cleanup**: Xóa thư mục hết hạn TTL
+- **Lock mechanism**: Tránh xung đột khi xóa
+- **Permanent save**: Lưu bản copy cá nhân trước khi xóa cache
+
+### Cache Settings
+```python
+# TTL cho thư mục cache
+DISK_CACHE_TTL_SECONDS = 86400  # 24 giờ
+
+# Quota tối đa cho cache
+DISK_CACHE_MAX_BYTES = 10 * 1024 * 1024 * 1024  # 10GB
+
+# Tần suất chạy cleaner
+DISK_CACHE_CLEANUP_INTERVAL = 1800  # 30 phút
+
+# Ngưỡng bắt đầu xóa LRU
+DISK_CACHE_LRU_EVICTION_THRESHOLD = 0.9  # 90%
+
+# Lưu bản copy cá nhân
+PERMANENT_SAVE = True
+PERMANENT_SAVE_DIR = "C:/Users/YourUsername/Music"
+```
+
+### API Endpoints
+```
+GET  /cleaner/stats     - Thống kê cleaner service
+POST /cleaner/run       - Chạy cleanup ngay lập tức
+GET  /cleaner/status    - Trạng thái scheduler
+POST /cleaner/start     - Start scheduler
+POST /cleaner/stop      - Stop scheduler
+```
+
 ## 🔐 Environment Variables
 
 ### Backend (.env)
@@ -488,6 +524,16 @@ WRAPPER_ARGS=additional_args
 ENABLE_DEDUPLICATION=true
 ENABLE_DISK_CACHE_MANAGEMENT=true
 ENABLE_SPOTIFY=false
+
+# Cache Management Settings
+DISK_CACHE_TTL_SECONDS=86400
+DISK_CACHE_MAX_BYTES=10737418240
+DISK_CACHE_CLEANUP_INTERVAL=1800
+DISK_CACHE_LRU_EVICTION_THRESHOLD=0.9
+
+# Permanent Save Settings (for personal music collection)
+PERMANENT_SAVE=true
+PERMANENT_SAVE_DIR=C:/Users/YourUsername/Music
 ```
 
 ### Frontend (.env)

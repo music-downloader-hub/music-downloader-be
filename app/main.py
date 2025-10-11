@@ -16,7 +16,8 @@ from fastapi import Request
 
 from .core.runner import find_repo_root, start_wrapper, stop_wrapper, is_wrapper_running
 from .api.routes import api_router
-from .setting.setting import ENABLE_SPOTIFY
+from .setting.setting import ENABLE_SPOTIFY, ENABLE_DISK_CACHE_MANAGEMENT
+from .core.background_scheduler import initialize_scheduler, start_background_scheduler, stop_background_scheduler
 
 
 app = FastAPI(title="Apple Music Download Service (Python)", version="1.0.0")
@@ -31,7 +32,7 @@ app.include_router(api_router)
 
 
 @app.on_event("startup")
-def on_startup() -> None:
+async def on_startup() -> None:
     repo_root = find_repo_root()
     try:
         from dotenv import load_dotenv
@@ -47,18 +48,35 @@ def on_startup() -> None:
     # If wrapper is already running (e.g., previously launched), skip starting and continue
     if is_wrapper_running():
         print("[WRAPPER] Detected existing 'wrapper-service' container. Skipping start.")
-        return
-    proc = start_wrapper(repo_root, login_args=login_args)
-    if proc is None:
-        # If start failed but container is running (race), continue
-        if is_wrapper_running():
-            print("[WRAPPER] Service appears to be running after start attempt. Continuing.")
-            return
-        raise RuntimeError("Wrapper service failed to start. Ensure Docker Desktop is running.")
+    else:
+        proc = start_wrapper(repo_root, login_args=login_args)
+        if proc is None:
+            # If start failed but container is running (race), continue
+            if is_wrapper_running():
+                print("[WRAPPER] Service appears to be running after start attempt. Continuing.")
+            else:
+                raise RuntimeError("Wrapper service failed to start. Ensure Docker Desktop is running.")
+    
+    # Initialize background scheduler for cache cleanup
+    if ENABLE_DISK_CACHE_MANAGEMENT:
+        # AM-DL downloads is at project root level
+        project_root = repo_root.parent.parent.parent
+        downloads_root = project_root / "AM-DL downloads"
+        
+        # Initialize and start background scheduler
+        initialize_scheduler(downloads_root)
+        await start_background_scheduler()
+        print("[CLEANER] Background scheduler started for cache cleanup")
 
 
 @app.on_event("shutdown")
-def on_shutdown() -> None:
+async def on_shutdown() -> None:
+    # Stop background scheduler
+    if ENABLE_DISK_CACHE_MANAGEMENT:
+        await stop_background_scheduler()
+        print("[CLEANER] Background scheduler stopped")
+    
+    # Stop wrapper service
     stop_wrapper()
 
 

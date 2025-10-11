@@ -1,0 +1,178 @@
+@startuml Task 4: Cleaner nền theo TTL - Sequence Diagram
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+skinparam maxmessagesize 60
+
+title **Task 4: Cleaner nền theo TTL + Permanent Save**\n*Tự động dọn thư mục hết hạn và lưu bản copy cá nhân*
+
+actor "Người dùng" as User
+participant "FastAPI App" as App
+participant "Background Scheduler" as Scheduler
+participant "CleanerService" as Cleaner
+participant "Redis" as Redis
+participant "File System" as FS
+participant "Permanent Storage" as Permanent
+
+== **Khởi động hệ thống** ==
+
+User -> App: Khởi động backend
+activate App
+
+App -> Scheduler: Khởi tạo Background Scheduler
+activate Scheduler
+
+Scheduler -> Cleaner: Tạo CleanerService instance
+activate Cleaner
+
+Cleaner -> Cleaner: Kiểm tra ENABLE_DISK_CACHE_MANAGEMENT
+Cleaner -> Cleaner: Kiểm tra Redis connection
+Cleaner --> Scheduler: Sẵn sàng hoạt động
+deactivate Cleaner
+
+Scheduler -> Scheduler: Bắt đầu timer (30 phút)
+Scheduler --> App: Scheduler đã khởi động
+deactivate Scheduler
+
+App --> User: Backend sẵn sàng
+deactivate App
+
+== **Download hoàn thành** ==
+
+User -> App: Tải nhạc thành công
+activate App
+
+App -> Cleaner: register_completed_download()
+activate Cleaner
+
+alt **Permanent Save được bật**
+    Cleaner -> FS: Kiểm tra thư mục AM-DL
+    FS --> Cleaner: Thư mục mới tạo
+    
+    Cleaner -> Permanent: Tạo thư mục đích
+    activate Permanent
+    Permanent --> Cleaner: Thư mục đã tạo
+    
+    Cleaner -> FS: Copy thư mục từ AM-DL
+    FS -> Permanent: Copy file .m4a và cover.jpg
+    Permanent --> Cleaner: Copy hoàn thành
+    deactivate Permanent
+    
+    note right: **Lưu bản copy cá nhân**\n*Không bị ảnh hưởng bởi cache cleanup*
+end
+
+Cleaner -> Redis: Đăng ký thư mục trong cache
+activate Redis
+Redis -> Redis: Tạo key dir:{path} với TTL
+Redis --> Cleaner: Đã đăng ký
+deactivate Redis
+
+Cleaner --> App: Hoàn thành
+deactivate Cleaner
+deactivate App
+
+== **Background Cleanup Cycle** ==
+
+Scheduler -> Scheduler: Timer 30 phút đã hết
+activate Scheduler
+
+Scheduler -> Cleaner: scan_and_cleanup()
+activate Cleaner
+
+Cleaner -> FS: Quét thư mục AM-DL downloads/
+FS --> Cleaner: Danh sách tất cả thư mục
+
+loop **Với mỗi thư mục**
+    Cleaner -> Redis: Kiểm tra dir:{path} có tồn tại?
+    activate Redis
+    
+    alt **Thư mục còn trong TTL**
+        Redis --> Cleaner: Key còn tồn tại
+        Cleaner -> Cleaner: Bỏ qua thư mục này
+    else **Thư mục đã hết hạn TTL**
+        Redis --> Cleaner: Key không tồn tại
+        
+        Cleaner -> Redis: Kiểm tra lock:dir:{path}
+        Redis --> Cleaner: Chưa bị lock
+        
+        Cleaner -> Redis: Tạo lock:dir:{path}
+        Redis --> Cleaner: Đã lock thành công
+        
+        alt **Permanent Save được bật**
+            Cleaner -> Permanent: Copy vào thư mục cá nhân
+            activate Permanent
+            Permanent --> Cleaner: Copy hoàn thành
+            deactivate Permanent
+        end
+        
+        Cleaner -> FS: Xóa thư mục từ AM-DL
+        FS --> Cleaner: Đã xóa thành công
+        
+        Cleaner -> Redis: Xóa lock:dir:{path}
+        Redis --> Cleaner: Đã unlock
+    end
+    deactivate Redis
+end
+
+Cleaner -> Cleaner: Tổng hợp thống kê cleanup
+Cleaner --> Scheduler: Trả về kết quả cleanup
+deactivate Cleaner
+
+Scheduler -> Scheduler: Chờ 30 phút tiếp theo
+deactivate Scheduler
+
+== **API Quản lý** ==
+
+User -> App: GET /cleaner/stats
+activate App
+
+App -> Cleaner: get_cleanup_stats()
+activate Cleaner
+Cleaner --> App: Thống kê và cấu hình
+deactivate Cleaner
+App --> User: Thông tin cleaner service
+deactivate App
+
+User -> App: POST /cleaner/run
+activate App
+
+App -> Scheduler: run_cleanup_now()
+activate Scheduler
+
+Scheduler -> Cleaner: scan_and_cleanup()
+activate Cleaner
+Cleaner --> Scheduler: Kết quả cleanup
+deactivate Cleaner
+
+Scheduler --> App: Thống kê cleanup
+deactivate Scheduler
+App --> User: Kết quả cleanup thủ công
+deactivate App
+
+== **Tắt hệ thống** ==
+
+User -> App: Tắt backend
+activate App
+
+App -> Scheduler: stop_background_scheduler()
+activate Scheduler
+
+Scheduler -> Scheduler: Dừng timer và cleanup
+Scheduler --> App: Đã dừng
+deactivate Scheduler
+
+App --> User: Backend đã tắt
+deactivate App
+
+note over User, Permanent
+**Lợi ích:**
+• **Tự động hóa**: Không cần can thiệp thủ công
+• **Linh hoạt**: Có thể bật/tắt permanent save
+• **An toàn**: Lock mechanism tránh xung đột
+• **Hiệu quả**: Cache vẫn hoạt động, permanent copy riêng biệt
+• **Monitoring**: API endpoints để theo dõi và quản lý
+end note
+
+@enduml
