@@ -10,9 +10,7 @@ from typing import List, Dict, Optional
 from ..core.redis import get_redis, is_redis_available
 from ..setting.setting import (
     ENABLE_DISK_CACHE_MANAGEMENT,
-    DISK_CACHE_CLEANUP_INTERVAL,
-    PERMANENT_SAVE,
-    PERMANENT_SAVE_DIR
+    DISK_CACHE_CLEANUP_INTERVAL
 )
 
 logger = logging.getLogger(__name__)
@@ -113,36 +111,6 @@ class CleanerService:
             logger.error(f"Failed to unlock directory {dir_path}: {e}")
             return False
     
-    def _copy_to_permanent_storage(self, source_dir: Path) -> bool:
-        """Copy directory to permanent storage if enabled."""
-        if not PERMANENT_SAVE or not PERMANENT_SAVE_DIR:
-            return True  # Not enabled, consider success
-        
-        try:
-            permanent_dir = Path(PERMANENT_SAVE_DIR)
-            permanent_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Get relative path from downloads root
-            relative_path = self._get_relative_path(source_dir)
-            if not relative_path or relative_path == ".":
-                return True
-            
-            # Create destination path in permanent storage
-            dest_dir = permanent_dir / relative_path
-            
-            # Skip if already exists
-            if dest_dir.exists():
-                logger.debug(f"Permanent copy already exists: {dest_dir}")
-                return True
-            
-            # Copy directory
-            shutil.copytree(source_dir, dest_dir)
-            logger.info(f"Copied to permanent storage: {source_dir} -> {dest_dir}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to copy to permanent storage {source_dir}: {e}")
-            return False
     
     def _remove_directory(self, dir_path: Path) -> bool:
         """Safely remove directory from disk."""
@@ -165,7 +133,6 @@ class CleanerService:
             "scanned": 0,
             "expired": 0,
             "locked": 0,
-            "copied": 0,
             "removed": 0,
             "errors": 0
         }
@@ -210,13 +177,6 @@ class CleanerService:
                     continue
                 
                 try:
-                    # Copy to permanent storage if enabled
-                    if PERMANENT_SAVE:
-                        if self._copy_to_permanent_storage(current_path):
-                            stats["copied"] += 1
-                        else:
-                            stats["errors"] += 1
-                    
                     # Remove directory from cache
                     if self._remove_directory(current_path):
                         stats["removed"] += 1
@@ -239,8 +199,6 @@ class CleanerService:
         return {
             "enabled": self.enabled,
             "downloads_root": str(self.downloads_root),
-            "permanent_save_enabled": PERMANENT_SAVE,
-            "permanent_save_dir": PERMANENT_SAVE_DIR if PERMANENT_SAVE else None,
             "redis_available": is_redis_available(),
             "cleanup_interval": DISK_CACHE_CLEANUP_INTERVAL
         }

@@ -6,7 +6,7 @@ skinparam sequenceArrowThickness 2
 skinparam roundcorner 20
 skinparam maxmessagesize 60
 
-title **Task 4: Cleaner nền theo TTL + Permanent Save**\n*Tự động dọn thư mục hết hạn và lưu bản copy cá nhân*
+title **Task 4: Cleaner nền theo TTL**\n*Tự động dọn thư mục hết hạn*
 
 actor "Người dùng" as User
 participant "FastAPI App" as App
@@ -14,7 +14,6 @@ participant "Background Scheduler" as Scheduler
 participant "CleanerService" as Cleaner
 participant "Redis" as Redis
 participant "File System" as FS
-participant "Permanent Storage" as Permanent
 
 == **Khởi động hệ thống** ==
 
@@ -47,21 +46,6 @@ activate App
 App -> Cleaner: register_completed_download()
 activate Cleaner
 
-alt **Permanent Save được bật**
-    Cleaner -> FS: Kiểm tra thư mục AM-DL
-    FS --> Cleaner: Thư mục mới tạo
-    
-    Cleaner -> Permanent: Tạo thư mục đích
-    activate Permanent
-    Permanent --> Cleaner: Thư mục đã tạo
-    
-    Cleaner -> FS: Copy thư mục từ AM-DL
-    FS -> Permanent: Copy file .m4a và cover.jpg
-    Permanent --> Cleaner: Copy hoàn thành
-    deactivate Permanent
-    
-    note right: **Lưu bản copy cá nhân**\n*Không bị ảnh hưởng bởi cache cleanup*
-end
 
 Cleaner -> Redis: Đăng ký thư mục trong cache
 activate Redis
@@ -100,12 +84,6 @@ loop **Với mỗi thư mục**
         Cleaner -> Redis: Tạo lock:dir:{path}
         Redis --> Cleaner: Đã lock thành công
         
-        alt **Permanent Save được bật**
-            Cleaner -> Permanent: Copy vào thư mục cá nhân
-            activate Permanent
-            Permanent --> Cleaner: Copy hoàn thành
-            deactivate Permanent
-        end
         
         Cleaner -> FS: Xóa thư mục từ AM-DL
         FS --> Cleaner: Đã xóa thành công
@@ -169,9 +147,8 @@ deactivate App
 note over User, Permanent
 **Lợi ích:**
 • **Tự động hóa**: Không cần can thiệp thủ công
-• **Linh hoạt**: Có thể bật/tắt permanent save
 • **An toàn**: Lock mechanism tránh xung đột
-• **Hiệu quả**: Cache vẫn hoạt động, permanent copy riêng biệt
+• **Hiệu quả**: Cache hoạt động tối ưu
 • **Monitoring**: API endpoints để theo dõi và quản lý
 end note
 

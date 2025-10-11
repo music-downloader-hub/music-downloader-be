@@ -43,7 +43,6 @@ REDIS_HOST = redis_config["host"]
 REDIS_PORT = redis_config["port"]
 REDIS_DB = redis_config["db"]
 REDIS_PASSWORD = redis_config["password"]
-
 # Cache Configuration
 CACHE_TTL_SECONDS = 86400  # 24 hours
 CACHE_MAX_BYTES = 0  # 0 = unlimited
@@ -52,12 +51,10 @@ CACHE_MAX_BYTES = 0  # 0 = unlimited
 ENABLE_DISK_CACHE_MANAGEMENT = True  # Enable disk cache TTL + quota management
 DISK_CACHE_TTL_SECONDS = 86400  # 24 hours TTL for directories
 DISK_CACHE_MAX_BYTES = 10 * 1024 * 1024 * 1024  # 10GB default quota
-DISK_CACHE_CLEANUP_INTERVAL = 60  # 1 minutes cleanup interval (how often to run cleaner)
 DISK_CACHE_LRU_EVICTION_THRESHOLD = 0.9  # Start eviction at 90% quota
 
-# Permanent Save Settings (for personal music collection)
-PERMANENT_SAVE = True  # Enable permanent save to personal directory
-PERMANENT_SAVE_DIR = "C:/Users/NovaSeele/Music"  # Directory to save permanent copies (not affected by cache cleanup)
+# Cleaner Configuration
+DISK_CACHE_CLEANUP_INTERVAL = 3600  # 1 hour cleanup interval (how often to run cleaner)
 
 # Feature Flags
 ENABLE_SPOTIFY = False

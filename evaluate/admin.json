@@ -99,7 +99,7 @@
       ]
     },
     "cleaner_management": {
-      "description": "Quản lý background cleaner - TTL cleanup, permanent save",
+      "description": "Quản lý background cleaner - TTL cleanup",
       "base_path": "/cleaner",
       "endpoints": [
         {
@@ -109,8 +109,6 @@
           "response": {
             "enabled": true,
             "downloads_root": "D:/Code/AppleMusicDownloader/AM-DL downloads",
-            "permanent_save_enabled": true,
-            "permanent_save_dir": "C:/Users/NovaSeele/Music",
             "redis_available": true,
             "cleanup_interval": 1800
           }
@@ -125,7 +123,6 @@
               "scanned": 15,
               "expired": 3,
               "locked": 0,
-              "copied": 3,
               "removed": 3,
               "errors": 0
             }
@@ -283,10 +280,10 @@
       "title": "Background Cleaner",
       "description": "Quản lý background cleaner service",
       "features": [
-        "Xem cấu hình cleaner (TTL, interval, permanent save)",
+        "Xem cấu hình cleaner (TTL, interval)",
         "Chạy cleanup ngay lập tức",
         "Start/Stop background scheduler",
-        "Xem thống kê cleanup (scanned, expired, removed, copied)"
+        "Xem thống kê cleanup (scanned, expired, removed)"
       ]
     },
     "job_monitoring": {
@@ -326,7 +323,6 @@
       "data_source": "GET /cleaner/stats",
       "display": [
         "Status: {enabled ? 'Enabled' : 'Disabled'}",
-        "Permanent Save: {permanent_save_enabled ? 'On' : 'Off'}",
         "Cleanup Interval: {cleanup_interval} seconds",
         "Downloads Root: {downloads_root}"
       ]
@@ -339,7 +335,6 @@
         "Scanned",
         "Expired", 
         "Removed",
-        "Copied",
         "Errors"
       ]
     },
@@ -402,25 +397,6 @@
           "description": "Ngưỡng bắt đầu xóa LRU (0.0-1.0)"
         }
       ]
-    },
-    "permanent_save_settings": {
-      "title": "Permanent Save Configuration",
-      "settings": [
-        {
-          "key": "PERMANENT_SAVE",
-          "label": "Enable Permanent Save",
-          "type": "boolean",
-          "default": true,
-          "description": "Bật/tắt lưu bản copy cá nhân"
-        },
-        {
-          "key": "PERMANENT_SAVE_DIR",
-          "label": "Permanent Save Directory",
-          "type": "string",
-          "default": "C:/Users/NovaSeele/Music",
-          "description": "Thư mục lưu bản copy cá nhân"
-        }
-      ]
     }
   },
   "admin_workflows": {
@@ -432,15 +408,6 @@
         "3. Run manual cleanup if needed",
         "4. Monitor cleanup results",
         "5. Adjust settings if necessary"
-      ]
-    },
-    "permanent_save_workflow": {
-      "title": "Permanent Save Management",
-      "steps": [
-        "1. Check permanent save configuration",
-        "2. Verify permanent save directory exists",
-        "3. Monitor cleanup stats for 'copied' count",
-        "4. Adjust permanent save settings if needed"
       ]
     },
     "system_maintenance_workflow": {

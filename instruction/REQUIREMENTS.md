@@ -466,7 +466,6 @@ Docker Compose 2.0+
 - **Tự động dọn dẹp**: Chạy định kỳ mỗi 30 phút
 - **TTL-based cleanup**: Xóa thư mục hết hạn TTL
 - **Lock mechanism**: Tránh xung đột khi xóa
-- **Permanent save**: Lưu bản copy cá nhân trước khi xóa cache
 
 ### Cache Settings
 ```python
@@ -482,9 +481,6 @@ DISK_CACHE_CLEANUP_INTERVAL = 1800  # 30 phút
 # Ngưỡng bắt đầu xóa LRU
 DISK_CACHE_LRU_EVICTION_THRESHOLD = 0.9  # 90%
 
-# Lưu bản copy cá nhân
-PERMANENT_SAVE = True
-PERMANENT_SAVE_DIR = "C:/Users/YourUsername/Music"
 ```
 
 ### API Endpoints
@@ -531,9 +527,6 @@ DISK_CACHE_MAX_BYTES=10737418240
 DISK_CACHE_CLEANUP_INTERVAL=1800
 DISK_CACHE_LRU_EVICTION_THRESHOLD=0.9
 
-# Permanent Save Settings (for personal music collection)
-PERMANENT_SAVE=true
-PERMANENT_SAVE_DIR=C:/Users/YourUsername/Music
 ```
 
 ### Frontend (.env)

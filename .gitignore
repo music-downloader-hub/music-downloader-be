@@ -1,3 +1,10 @@
 __pycache__/
 .venv/
 .env
+
+rootfs/
+.vscode/
+wrapper
+backend/modules/wrapper/wrapper
+rootfs/system/bin/linker64
+build/
