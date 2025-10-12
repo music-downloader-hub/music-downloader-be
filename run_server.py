@@ -22,9 +22,9 @@ if __name__ == "__main__":
     from app.setting.setting import HOST, PORT, RELOAD
     
     # Configuration from settings
-    host = os.getenv("HOST", HOST)
-    port = int(os.getenv("PORT", str(PORT)))
-    reload = os.getenv("RELOAD", str(RELOAD).lower()).lower() == "true"
+    host = HOST
+    port = PORT
+    reload = RELOAD
     
     print(f"🚀 Starting Apple Music Downloader Backend...")
     print(f"📍 Server: http://{host}:{port}")
