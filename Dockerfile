@@ -1,5 +1,5 @@
 # Backend Dockerfile for Apple Music Downloader
-FROM python:3.11-slim
+FROM ubuntu:latest
 
 # Set working directory
 WORKDIR /app
@@ -16,6 +16,10 @@ RUN apt-get update && apt-get install -y \
     unzip \
     tar \
     gzip \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
     # For MP4Box (GPAC)
     libgpac-dev \
     gpac \
@@ -34,20 +38,24 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Create virtual environment
+RUN python3 -m venv /app/.venv
+
+# Activate virtual environment and install Python dependencies
+RUN /app/.venv/bin/pip install --upgrade pip && \
+    /app/.venv/bin/pip install -r requirements.txt
+
+# Copy the entire backend directory
+COPY . .
 
 # Install MP4Decrypt (Bento4) - required for MV downloads
-RUN wget -O bento4.zip "https://www.bento4.com/downloads/Bento4_src-1-6-0-640.zip" && \
+RUN wget -O bento4.zip "https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip" && \
     unzip bento4.zip && \
-    cd Bento4_src-1-6-0-640 && \
-    make && \
-    cp bin/mp4decrypt /usr/local/bin/ && \
+    cp Bento4-SDK-1-6-0-641.x86_64-unknown-linux/bin/mp4decrypt /usr/local/bin/ && \
     chmod +x /usr/local/bin/mp4decrypt && \
-    cd .. && \
-    rm -rf bento4.zip Bento4_src-1-6-0-640
+    rm -rf bento4.zip Bento4-SDK-1-6-0-641.x86_64-unknown-linux
 
-# Download and setup wrapper binary
+# Download and setup wrapper binary (similar to wrapper Dockerfile)
 RUN mkdir -p /app/wrapper && \
     cd /app/wrapper && \
     wget "https://github.com/zhaarey/wrapper/releases/download/linux.V2/wrapper.x86_64.tar.gz" && \
@@ -58,7 +66,7 @@ RUN mkdir -p /app/wrapper && \
 # Copy the entire backend directory
 COPY . .
 
-# Create necessary directories
+# Create necessary directories (similar to wrapper Dockerfile)
 RUN mkdir -p logs data \
     /app/rootfs/data/data/com.apple.android.music/files
 
