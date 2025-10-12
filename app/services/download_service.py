@@ -33,7 +33,7 @@ class DownloadService:
         """Find the AM-DL downloads root directory."""
         # AM-DL downloads is now at the project root level
         # Go from backend/app/services/ to project root
-        project_root = Path(__file__).parent.parent.parent.parent.parent
+        project_root = Path(__file__).parent.parent.parent.parent
         downloads_path = project_root / "AM-DL downloads"
         
         if downloads_path.exists() and downloads_path.is_dir():

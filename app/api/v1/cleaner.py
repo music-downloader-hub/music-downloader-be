@@ -14,7 +14,7 @@ def _get_downloads_root() -> Path:
     """Get the AM-DL downloads root directory."""
     # AM-DL downloads is now at the project root level
     # Go from backend/app/api/v1/ to project root
-    project_root = Path(__file__).parent.parent.parent.parent.parent
+    project_root = Path(__file__).parent.parent.parent.parent
     downloads_root = project_root / "AM-DL downloads"
     
     if not downloads_root.exists():

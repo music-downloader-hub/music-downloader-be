@@ -60,7 +60,7 @@ async def on_startup() -> None:
     # Initialize background scheduler for cache cleanup
     if ENABLE_DISK_CACHE_MANAGEMENT:
         # AM-DL downloads is at project root level
-        project_root = repo_root.parent.parent.parent
+        project_root = repo_root.parent.parent
         downloads_root = project_root / "AM-DL downloads"
         
         # Initialize and start background scheduler

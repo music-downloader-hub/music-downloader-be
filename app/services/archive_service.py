@@ -18,9 +18,9 @@ class ArchiveService:
     
     def __init__(self):
         # AM-DL downloads is now at the project root level
-        # find_repo_root() returns backend/modules/downloaders/
-        # So we need to go up 3 levels: downloaders -> modules -> backend -> project_root
-        project_root = find_repo_root().parent.parent.parent
+        # find_repo_root() returns backend/downloaders/
+        # So we need to go up 2 levels: downloaders -> backend -> project_root
+        project_root = find_repo_root().parent.parent
         self.downloads_root = project_root / "AM-DL downloads"
 
     def _validate_subpath(self, path: str) -> Path:

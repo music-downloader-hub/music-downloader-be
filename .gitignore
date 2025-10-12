@@ -4,7 +4,5 @@ __pycache__/
 
 rootfs/
 .vscode/
-wrapper
-backend/modules/wrapper/wrapper
 rootfs/system/bin/linker64
 build/

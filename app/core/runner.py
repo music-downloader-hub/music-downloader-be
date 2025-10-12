@@ -11,16 +11,16 @@ from typing import Callable, Iterable, List, Optional
 def find_repo_root(start: Optional[Path] = None) -> Path:
     """Find the Go module root containing main.go in the new structure.
     
-    Looks for backend/modules/downloaders/main.go first, then falls back to old logic.
+    Looks for backend/downloaders/main.go first, then falls back to old logic.
     """
-    # Try the new structure first: backend/modules/downloaders/
+    # Try the new structure first: backend/downloaders/
     current = start or Path(__file__).resolve()
     if current.is_file():
         current = current.parent
     
-    # Look for backend/modules/downloaders/main.go
+    # Look for backend/downloaders/main.go
     for parent in [current, *current.parents]:
-        downloaders_path = parent / "modules" / "downloaders"
+        downloaders_path = parent / "downloaders"
         if (downloaders_path / "main.go").exists() and (downloaders_path / "go.mod").exists():
             return downloaders_path
     
@@ -78,8 +78,8 @@ _WRAPPER_STARTED_BY_APP: bool = False
 def start_wrapper(repo_root: Path, login_args: Optional[str] = None) -> Optional[Popen]:
     if not ensure_wrapper_built(repo_root):
         return None
-    # Wrapper is now in backend/modules/wrapper/
-    wrapper_path = repo_root.parent.parent / "modules" / "wrapper"
+    # Wrapper is now in backend/wrapper/
+    wrapper_path = repo_root.parent / "wrapper"
     data_dir = wrapper_path / "rootfs" / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     args = login_args or "-H 0.0.0.0"
