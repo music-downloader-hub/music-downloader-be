@@ -112,10 +112,10 @@ python switch_redis_mode.py cloud
 # Thông tin Redis Cloud hiện tại:
 # Host: redis-18425.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com
 # Port: 18425
-# Password: hu8fSwozwhIjHMTfDs7bz6UYtrt4Ct8e
+# Password: os.getenv("REDIS_CLOUD_PASSWORD")
 
 # Test kết nối Redis Cloud
-redis-cli -h redis-18425.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com -p 18425 -a hu8fSwozwhIjHMTfDs7bz6UYtrt4Ct8e ping
+redis-cli -h redis-18425.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com -p 18425 -a {os.getenv("REDIS_CLOUD_PASSWORD")} ping
 # Kết quả: PONG
 
 # Test bằng Python script
@@ -494,6 +494,20 @@ POST /cleaner/stop      - Stop scheduler
 
 ## 🔐 Environment Variables
 
+### Tạo file .env
+```bash
+# Tạo file .env trong thư mục backend/
+cd backend
+touch .env  # Linux/macOS
+# hoặc tạo file .env bằng text editor trên Windows
+```
+
+### Load .env file
+```bash
+# Backend tự động load .env file khi chạy run_server.py
+# Không cần cấu hình thêm
+```
+
 ### Backend (.env)
 ```bash
 # Server Configuration
@@ -505,11 +519,20 @@ RELOAD=true
 REDIS_URL=redis://localhost:6379/0
 ENABLE_REDIS=true
 
-# Redis Configuration (Cloud) - Uncomment để sử dụng
-# REDIS_URL=redis://your-host:port/0
-# REDIS_HOST=your-redis-host
-# REDIS_PORT=your_port
-# REDIS_PASSWORD=your_password
+# Redis Configuration (Cloud) - Bắt buộc phải có trong .env
+REDIS_CLOUD_PASSWORD=your_redis_cloud_password_here
+
+# - File .env chứa thông tin nhạy cảm
+# - KHÔNG commit file .env vào Git
+# - File .env đã được thêm vào .gitignore
+# - Chỉ lưu password trong .env, KHÔNG lưu trong setting.py
+
+# Troubleshooting .env file
+# Nếu gặp lỗi "Authentication required" với Redis Cloud:
+# 1. Kiểm tra file .env có đúng vị trí: backend/.env
+# 2. Kiểm tra format: REDIS_CLOUD_PASSWORD=your_password (không có dấu cách)
+# 3. Chạy test: python test_env.py
+# 4. Restart server sau khi sửa .env
 
 # Wrapper Configuration
 WRAPPER_USERNAME=your_username

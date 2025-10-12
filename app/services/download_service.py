@@ -16,7 +16,6 @@ from ..core.debug_parser import parse_debug_tracks
 from ..core.dedupe import dedupe_service
 from .job_service import JobService
 from .cache_service import CacheService
-from ..setting.setting import PERMANENT_SAVE, PERMANENT_SAVE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -163,10 +162,6 @@ class DownloadService:
             # Sort by modification time (most recent first)
             latest_dir = max(subdirs, key=lambda d: d.stat().st_mtime)
             
-            # Copy to permanent storage if enabled
-            if PERMANENT_SAVE and PERMANENT_SAVE_DIR:
-                self._copy_to_permanent_storage(latest_dir)
-            
             # Register in cache
             return self.cache_service.register_directory(latest_dir)
             
@@ -174,36 +169,6 @@ class DownloadService:
             logger.error(f"Failed to register completed download {job_id}: {e}")
             return False
     
-    def _copy_to_permanent_storage(self, source_dir: Path) -> bool:
-        """Copy directory to permanent storage if enabled."""
-        try:
-            permanent_dir = Path(PERMANENT_SAVE_DIR)
-            permanent_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Get relative path from downloads root
-            downloads_root = self.cache_service.downloads_root
-            try:
-                relative_path = source_dir.relative_to(downloads_root)
-            except ValueError:
-                # Path is not under downloads root
-                relative_path = source_dir.name
-            
-            # Create destination path in permanent storage
-            dest_dir = permanent_dir / relative_path
-            
-            # Skip if already exists
-            if dest_dir.exists():
-                logger.debug(f"Permanent copy already exists: {dest_dir}")
-                return True
-            
-            # Copy directory
-            shutil.copytree(source_dir, dest_dir)
-            logger.info(f"Copied to permanent storage: {source_dir} -> {dest_dir}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to copy to permanent storage {source_dir}: {e}")
-            return False
 
     def start_debug_download(self, request: DownloadRequest) -> DebugResponse:
         """Start a debug download and return parsed debug information."""

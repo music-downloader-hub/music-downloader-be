@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 # Redis Configuration Mode
 REDIS_MODE = "cloud"
@@ -15,7 +16,7 @@ REDIS_CLOUD_URL = "redis://redis-18425.c295.ap-southeast-1-1.ec2.redns.redis-clo
 REDIS_CLOUD_HOST = "redis-18425.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com"
 REDIS_CLOUD_PORT = 18425
 REDIS_CLOUD_DB = 0
-REDIS_CLOUD_PASSWORD = "hu8fSwozwhIjHMTfDs7bz6UYtrt4Ct8e"
+REDIS_CLOUD_PASSWORD = os.getenv("REDIS_CLOUD_PASSWORD")
 
 # Dynamic Redis Configuration (based on mode)
 def get_redis_config():

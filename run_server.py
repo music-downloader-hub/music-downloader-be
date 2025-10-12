@@ -8,6 +8,10 @@ import sys
 import os
 from pathlib import Path
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Add the app directory to Python path
 app_dir = Path(__file__).parent / "app"
 sys.path.insert(0, str(app_dir))
