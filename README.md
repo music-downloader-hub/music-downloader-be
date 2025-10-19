@@ -36,5 +36,5 @@ python backend/run_server.py
 Legacy aliases under `/jobs/*` remain available but are hidden from docs.
 
 ## Notes
-- The Go CLI still requires `config.yaml`, `wrapper`, `MP4Box`, `mp4decrypt` as before.
+- The Go CLI still requires `config.yaml`, `MP4Box`, `mp4decrypt` as before.
 - Logs are stored in-memory; use `last_n` to trim responses.
