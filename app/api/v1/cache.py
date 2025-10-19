@@ -139,3 +139,36 @@ def register_directory(path: str):
         raise HTTPException(status_code=500, detail="Failed to register directory")
     
     return {"message": f"Directory {path} registered successfully"}
+
+
+@router.post("/clear")
+def clear_all_cache():
+    """Clear all cache data. Use this when moving download directories."""
+    cache_service = _get_cache_service()
+    
+    if not cache_service.enabled or not cache_service.redis:
+        return {"message": "Cache system is disabled or Redis unavailable"}
+    
+    try:
+        # Clear all cache-related keys
+        pattern = "dir:*"
+        dir_keys = list(cache_service.redis.scan_iter(match=pattern))
+        
+        pattern = "cache:*"
+        cache_keys = list(cache_service.redis.scan_iter(match=pattern))
+        
+        pattern = "lock:dir:*"
+        lock_keys = list(cache_service.redis.scan_iter(match=pattern))
+        
+        all_keys = dir_keys + cache_keys + lock_keys
+        
+        if all_keys:
+            cache_service.redis.delete(*all_keys)
+        
+        return {
+            "message": "All cache data cleared successfully",
+            "cleared_keys": len(all_keys)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e}")

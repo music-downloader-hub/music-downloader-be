@@ -78,6 +78,11 @@ class CacheService:
             return True
         
         try:
+            # Validate that directory exists and is under downloads root
+            if not dir_path.exists() or not dir_path.is_dir():
+                logger.warning(f"Directory does not exist or is not a directory: {dir_path}")
+                return False
+            
             relative_path = self._get_relative_path(dir_path)
             if not relative_path or relative_path == ".":
                 return True
