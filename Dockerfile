@@ -4,7 +4,7 @@ FROM ubuntu:latest
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for wrapper and downloader
+# Install system dependencies for downloader
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
@@ -55,20 +55,12 @@ RUN wget -O bento4.zip "https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641
     chmod +x /usr/local/bin/mp4decrypt && \
     rm -rf bento4.zip Bento4-SDK-1-6-0-641.x86_64-unknown-linux
 
-# Download and setup wrapper binary (similar to wrapper Dockerfile)
-RUN mkdir -p /app/wrapper && \
-    cd /app/wrapper && \
-    wget "https://github.com/zhaarey/wrapper/releases/download/linux.V2/wrapper.x86_64.tar.gz" && \
-    tar -xzf wrapper.x86_64.tar.gz && \
-    chmod +x wrapper && \
-    rm wrapper.x86_64.tar.gz
 
 # Copy the entire backend directory
 COPY . .
 
-# Create necessary directories (similar to wrapper Dockerfile)
-RUN mkdir -p logs data \
-    /app/rootfs/data/data/com.apple.android.music/files
+# Create necessary directories
+RUN mkdir -p logs data
 
 # Make startup script executable
 RUN chmod +x /app/start_services.sh
@@ -76,14 +68,13 @@ RUN chmod +x /app/start_services.sh
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-ENV PATH="/app/wrapper:${PATH}"
 
 # Expose ports
-EXPOSE 8080 10020 20020
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-# Run both wrapper and backend services
+# Run backend service
 CMD ["/app/start_services.sh"]

@@ -263,115 +263,6 @@ ffmpeg -version
 - MV (Music Video)             # Cần media-user-token
 ```
 
-## 🐳 Docker Wrapper
-
-### Docker Requirements
-```bash
-# Docker Desktop đã cài đặt (như trên)
-# Docker Engine version 20.10+
-```
-
-### Wrapper Dependencies
-```dockerfile
-# backend/modules/wrapper/Dockerfile
-FROM alpine:3.18
-
-# Cài đặt dependencies
-RUN apk add --no-cache \
-    curl \
-    wget \
-    ca-certificates \
-    tzdata
-
-# Copy wrapper binary
-COPY wrapper /usr/local/bin/
-COPY rootfs/ /app/rootfs/
-
-# Expose port
-EXPOSE 10020
-
-# Run wrapper
-CMD ["wrapper"]
-```
-
-### Wrapper Source (C)
-```c
-// backend/modules/wrapper/main.c
-// Dependencies: libc, pthread, curl
-// Compile với: gcc -o wrapper main.c -lcurl -lpthread
-```
-
-### Wrapper Installation & Usage
-
-#### Docker Method (Khuyến nghị cho Windows)
-```bash
-# 1. Build Docker image
-cd backend/modules/wrapper
-docker build --tag wrapper .
-
-# 2. Tạo thư mục cần thiết
-mkdir -p rootfs/data/data/com.apple.android.music/files
-
-# 3. Chạy với Apple Music login
-docker run -v ./rootfs/data:/app/rootfs/data -p 10020:10020 \
-  -e args="-L username:password -F -H 0.0.0.0" wrapper
-
-# 4. Chạy không login (nếu đã login trước đó)
-docker run -v ./rootfs/data:/app/rootfs/data -p 10020:10020 \
-  -e args="-H 0.0.0.0" wrapper
-
-# 5. Kiểm tra container
-docker ps
-
-# 6. Xem logs
-docker logs wrapper-service
-
-# 7. Dừng service
-docker stop wrapper-service
-docker rm wrapper-service
-```
-
-#### Native Installation (Linux x86_64/arm64)
-```bash
-# x86_64
-sudo -i
-wget "https://github.com/zhaarey/wrapper/releases/download/linux.V2/wrapper.x86_64.tar.gz"
-mkdir wrapper
-tar -xzf wrapper.x86_64.tar.gz -C wrapper
-cd wrapper
-./wrapper
-
-# arm64
-sudo -i
-wget "https://github.com/zhaarey/wrapper/releases/download/arm64/wrapper.arm64.tar.gz"
-mkdir wrapper
-tar -xzf wrapper.arm64.tar.gz -C wrapper
-cd wrapper
-./wrapper
-```
-
-#### Wrapper Command Options
-```bash
-./wrapper [OPTION]...
-  -h, --help               Print help and exit
-  -V, --version            Print version and exit
-  -H, --host=STRING        (default: 127.0.0.1)
-  -D, --decrypt-port=INT   (default: 10020)
-  -M, --m3u8-port=INT      (default: 20020)
-  -P, --proxy=STRING       (default: '')
-  -L, --login=STRING       ([username] [password])
-```
-
-### Wrapper Environment Requirements
-```bash
-# Hỗ trợ:
-# - Linux x86_64 và arm64
-# - Windows Subsystem for Linux (WSL) - khuyến nghị
-# - Docker Desktop (Windows) - đã được modify để hỗ trợ
-
-# Không cần Android emulator để decrypt ALAC files
-# Tất cả files từ anonymous source
-```
 
 ## 🌐 Frontend Dependencies
 
@@ -534,10 +425,6 @@ REDIS_CLOUD_PASSWORD=your_redis_cloud_password_here
 # 3. Chạy test: python test_env.py
 # 4. Restart server sau khi sửa .env
 
-# Wrapper Configuration
-WRAPPER_USERNAME=your_username
-WRAPPER_PASSWORD=your_password
-WRAPPER_ARGS=additional_args
 
 # Feature Flags
 ENABLE_DEDUPLICATION=true
@@ -614,22 +501,13 @@ go mod tidy
 go mod download
 ```
 
-### 6. Setup Wrapper
-```bash
-cd backend/modules/wrapper
-docker build -t wrapper .
-
-# Tạo thư mục cần thiết
-mkdir -p rootfs/data/data/com.apple.android.music/files
-```
-
-### 7. Setup Frontend
+### 6. Setup Frontend
 ```bash
 cd frontend
 npm install
 ```
 
-### 8. Run Application
+### 7. Run Application
 ```bash
 # Terminal 1: Backend
 cd backend
@@ -709,9 +587,6 @@ go mod download
 # Clean Docker cache
 docker system prune -a
 
-# Rebuild wrapper
-cd backend/modules/wrapper
-docker build -t wrapper . --no-cache
 ```
 
 #### 5. MP4Box Not Found
@@ -740,23 +615,7 @@ echo $env:PATH
 mp4decrypt --version
 ```
 
-#### 7. Wrapper Connection Failed
-```bash
-# Kiểm tra wrapper container
-docker ps | grep wrapper
-
-# Kiểm tra port 10020
-netstat -an | findstr :10020
-
-# Restart wrapper
-docker stop wrapper-service
-docker rm wrapper-service
-cd backend/modules/wrapper
-docker run -v ./rootfs/data:/app/rootfs/data -p 10020:10020 \
-  -e args="-H 0.0.0.0" wrapper
-```
-
-#### 8. Apple Music Token Issues
+#### 7. Apple Music Token Issues
 ```bash
 # Kiểm tra media-user-token trong config.yaml
 # Đảm bảo token còn hiệu lực

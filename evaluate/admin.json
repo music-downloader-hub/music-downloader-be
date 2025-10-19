@@ -231,7 +231,6 @@
             "timestamp": "2024-12-19T10:30:00Z",
             "services": {
               "redis": "connected",
-              "wrapper": "running",
               "cleaner": "active"
             },
             "version": "1.0.0"
@@ -239,30 +238,6 @@
         }
       ]
     },
-    "cli_management": {
-      "description": "Quản lý CLI wrapper service",
-      "base_path": "/cli",
-      "endpoints": [
-        {
-          "method": "GET",
-          "path": "/cli/status",
-          "description": "Trạng thái wrapper service",
-          "response": {
-            "running": true,
-            "container_id": "abc123def456",
-            "started_at": "2024-12-19T09:00:00Z"
-          }
-        },
-        {
-          "method": "POST",
-          "path": "/cli/restart",
-          "description": "Restart wrapper service",
-          "response": {
-            "message": "Wrapper service restarted successfully"
-          }
-        }
-      ]
-    }
   },
   "admin_dashboard_features": {
     "cache_overview": {
@@ -301,7 +276,6 @@
       "description": "Giám sát sức khỏe hệ thống",
       "features": [
         "Trạng thái Redis connection",
-        "Trạng thái wrapper service",
         "Trạng thái background cleaner",
         "Version và timestamp"
       ]
@@ -359,7 +333,6 @@
       "data_source": "GET /health",
       "indicators": [
         "Redis: {services.redis}",
-        "Wrapper: {services.wrapper}",
         "Cleaner: {services.cleaner}"
       ]
     }

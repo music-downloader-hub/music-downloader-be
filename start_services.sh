@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Start backend service (wrapper is managed by backend)
+# Start backend service
 echo "Starting backend service..."
 cd /app
 source .venv/bin/activate
