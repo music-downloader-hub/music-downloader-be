@@ -34,28 +34,28 @@ app.include_router(api_router)
 @app.on_event("startup")
 async def on_startup() -> None:
     repo_root = find_repo_root()
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except Exception:
-        pass
-    username = os.environ.get("WRAPPER_USERNAME")
-    password = os.environ.get("WRAPPER_PASSWORD")
-    login_args = os.environ.get("WRAPPER_ARGS")
-    if username and password:
-        extra = f" {login_args}" if login_args else ""
-        login_args = f"-L {username}:{password}{extra}"
-    # If wrapper is already running (e.g., previously launched), skip starting and continue
-    if is_wrapper_running():
-        print("[WRAPPER] Detected existing 'wrapper-service' container. Skipping start.")
-    else:
-        proc = start_wrapper(repo_root, login_args=login_args)
-        if proc is None:
-            # If start failed but container is running (race), continue
-            if is_wrapper_running():
-                print("[WRAPPER] Service appears to be running after start attempt. Continuing.")
-            else:
-                raise RuntimeError("Wrapper service failed to start. Ensure Docker Desktop is running.")
+    # try:
+    #     from dotenv import load_dotenv
+    #     load_dotenv()
+    # except Exception:
+    #     pass
+    # username = os.environ.get("WRAPPER_USERNAME")
+    # password = os.environ.get("WRAPPER_PASSWORD")
+    # login_args = os.environ.get("WRAPPER_ARGS")
+    # if username and password:
+    #     extra = f" {login_args}" if login_args else ""
+    #     login_args = f"-L {username}:{password}{extra}"
+    # # If wrapper is already running (e.g., previously launched), skip starting and continue
+    # if is_wrapper_running():
+    #     print("[WRAPPER] Detected existing 'wrapper-service' container. Skipping start.")
+    # else:
+    #     proc = start_wrapper(repo_root, login_args=login_args)
+    #     if proc is None:
+    #         # If start failed but container is running (race), continue
+    #         if is_wrapper_running():
+    #             print("[WRAPPER] Service appears to be running after start attempt. Continuing.")
+    #         else:
+    #             raise RuntimeError("Wrapper service failed to start. Ensure Docker Desktop is running.")
     
     # Initialize background scheduler for cache cleanup
     if ENABLE_DISK_CACHE_MANAGEMENT:
